@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Район — Населённый пункт · Краснодарский край + Адыгея → Excel</title>
+<title>Район · Город · Населённый пункт — Краснодарский край + Адыгея → Excel/CSV</title>
 
-<!-- Шрифт -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<!-- SheetJS для экспорта в XLSX -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -39,7 +37,7 @@
   .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .filters label{display:flex;gap:8px;align-items:center;background:#0e1b34;border:1px solid var(--line);
     padding:8px 10px;border-radius:10px}
-  .search{flex:1;min-width:180px}
+  .search{flex:1;min-width:220px}
   .search input{width:100%;padding:10px 12px;background:#0f1c36;border:1px solid var(--line);border-radius:10px;color:var(--fg)}
   table{width:100%;border-collapse:separate;border-spacing:0;background:#0f1b34;border:1px solid var(--line);
     border-radius:12px;overflow:hidden}
@@ -54,9 +52,10 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Экспорт «Район — Населённый пункт» · Краснодарский край + Республика Адыгея</h1>
+      <h1>Экспорт «Район — Город — Населённый пункт» · Краснодарский край + Республика Адыгея</h1>
       <p class="lead">Нажмите «Собрать данные» — страница получит списки населённых пунктов с Википедии,
-        распарсит по районам/ГО, покажет превью и позволит скачать <b>XLSX</b> или <b>CSV</b>.</p>
+        распарсит по районам/ГО и городам, покажет превью и даст выгрузку <b>XLSX/CSV</b> строго в колонках:
+        <b>Район, Город, Населённый пункт</b>.</p>
 
       <div class="controls">
         <button id="btnRun" class="btn">Собрать данные</button>
@@ -67,16 +66,15 @@
     </header>
 
     <div class="grid">
-      <!-- Левая колонка: таблица + фильтры -->
       <section class="card">
         <div class="filters">
           <label><input type="checkbox" id="chkKK" checked> Краснодарский край</label>
           <label><input type="checkbox" id="chkRA" checked> Республика Адыгея</label>
-          <label title="Группировка нужна только для превью (на экспорт не влияет)">
-            <input type="checkbox" id="chkGroup" checked> Группировать по району
+          <label title="Только для превью (на экспорт не влияет)">
+            <input type="checkbox" id="chkGroup" checked> Группировать по району/городу
           </label>
           <div class="search">
-            <input id="q" placeholder="Поиск по району/населенному пункту…" />
+            <input id="q" placeholder="Поиск по району / городу / НП …" />
           </div>
         </div>
 
@@ -84,28 +82,33 @@
           <div class="metric"><b id="mTotal">0</b><span class="muted">Строк всего</span></div>
           <div class="metric"><b id="mKK">0</b><span class="muted">По КК</span></div>
           <div class="metric"><b id="mRA">0</b><span class="muted">По РА</span></div>
-          <div class="metric"><b id="mDistricts">0</b><span class="muted">Уникальных районов/ГО</span></div>
+          <div class="metric"><b id="mDistricts">0</b><span class="muted">Уникальных связок Район–Город</span></div>
         </div>
 
         <div style="margin-top:10px;max-height:55vh;overflow:auto;border-radius:12px">
           <table id="tbl">
-            <thead><tr><th style="width:160px">Регион</th><th style="width:280px">Район / ГО</th><th>Населённый пункт</th></tr></thead>
+            <thead>
+              <tr>
+                <th style="width:280px">Район / ГО</th>
+                <th style="width:220px">Город</th>
+                <th>Населённый пункт</th>
+              </tr>
+            </thead>
             <tbody id="tbody"><tr><td colspan="3" class="muted">Нет данных — нажмите «Собрать данные»</td></tr></tbody>
           </table>
         </div>
       </section>
 
-      <!-- Правая колонка: лог/статус + ссылки -->
       <aside class="card">
         <div class="status" id="log">Готов к работе.\n</div>
         <div class="src" style="margin-top:10px">
-          <div class="muted" style="margin-bottom:6px">Страницы Википедии (используется REST API):</div>
+          <div class="muted" style="margin-bottom:6px">Страницы Википедии (REST API):</div>
           <ul>
             <li><a target="_blank" href="https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D1%91%D0%BD%D0%BD%D1%8B%D0%B5_%D0%BF%D1%83%D0%BD%D0%BA%D1%82%D1%8B_%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B4%D0%B0%D1%80%D1%81%D0%BA%D0%BE%D0%B3%D0%BE_%D0%BA%D1%80%D0%B0%D1%8F">Населённые пункты Краснодарского края</a></li>
             <li><a target="_blank" href="https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D1%91%D0%BD%D0%BD%D1%8B%D0%B5_%D0%90%D0%B4%D1%8B%D0%B3%D0%B5%D0%B8">Населённые пункты Адыгеи</a></li>
           </ul>
           <div class="muted" style="font-size:12px;margin-top:6px">
-            Примечание: для юридически значимых задач используйте реестр адресов ГАР/ФИАС (ФНС).
+            Примечание: для строгой официальности используйте ГАР/ФИАС (ФНС).
           </div>
         </div>
       </aside>
@@ -115,15 +118,14 @@
   </div>
 
 <script>
-/* ==========================
-   Настройки и утилиты
-   ========================== */
+/* ===== Настройки ===== */
 const PAGES = [
   { title: 'Населённые_пункты_Краснодарского_края', region: 'Краснодарский край', enabled: () => el.chkKK.checked },
   { title: 'Населённые_пункты_Адыгеи',           region: 'Республика Адыгея',    enabled: () => el.chkRA.checked },
 ];
 const WIKI_REST = (title) => `https://ru.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
 
+/* ===== UI refs ===== */
 const el = {
   btnRun: document.getElementById('btnRun'),
   btnXLSX: document.getElementById('btnXLSX'),
@@ -141,37 +143,58 @@ const el = {
   mDistricts: document.getElementById('mDistricts'),
 };
 
-function log(msg, cls=''){ el.log.textContent += msg + '\n'; el.log.scrollTop = el.log.scrollHeight; if(cls){console.log(msg)} }
+function log(msg){ el.log.textContent += msg + '\n'; el.log.scrollTop = el.log.scrollHeight; }
+
+/* ===== Текстовые утилиты ===== */
 function cleanText(s){
   return (s||'')
     .replace(/\[\d+\]/g,'')           // [1], [2]
-    .replace(/\s+\(.*?\)\s*$/,'')     // хвостовые (...), часто служебные пометки
+    .replace(/\s+\(.*?\)\s*$/,'')     // хвостовые (...), служебные пометки
     .replace(/[\u200b\u00A0]/g,' ')   // nbsp/zwsp
     .replace(/\s+/g,' ')
     .trim();
 }
 function lvl(hTag){ return Number(hTag.replace('H','')) || 6; }
 
+/* ===== Определение районного/городского заголовка ===== */
+const KNOWN_CITIES = [
+  'Краснодар','Сочи','Новороссийск','Анапа','Армавир','Геленджик','Горячий Ключ','Славянск-на-Кубани',
+  'Ейск','Темрюк','Туапсе','Лабинск','Крымск','Белореченск','Кореновск','Кропоткин','Тихорецк',
+  'Абинск','Усть-Лабинск','Динская','Каневская'
+];
+
+function detectCityInHeading(title){
+  const t = title.toLowerCase();
+  // "город ___" / "город-курорт ___" / "г. ___"
+  let m = t.match(/^город-курорт\s+(.+)$/i) || t.match(/^город\s+(.+)$/i);
+  if (m) return cleanName(m[1]);
+  m = title.match(/^г\.\s*([А-ЯA-Za-zЁё -–—]+)$/);
+  if (m) return cleanName(m[1]);
+  // просто имя известного города
+  for (const c of KNOWN_CITIES){
+    if (t.includes(c.toLowerCase()) && !/район/i.test(t)) return c;
+  }
+  if (/сириус/i.test(t)) return 'Сириус';
+  return '';
+}
+
 function isDistrictHeading(text){
   const t = text.toLowerCase();
   const looksDistrict = /(ский|ской|цкий|нский|минский|бинский|жский)\b/i.test(text);
-  const hasRai = t.includes('район');                          // «___ район»
-  const isCity = t.startsWith('город ');                       // «город ___»
-  const isGO   = t.includes('город-курорт') || t.includes('сириус') ||
-                 t.includes('горячий ключ') || t.includes('краснодар') ||
-                 t.includes('новороссийск') || t.includes('анапа') ||
-                 t.includes('армавир') || t.includes('геленджик');
-  return looksDistrict || hasRai || isCity || isGO;
+  const hasRai = t.includes('район');
+  const hasCity = !!detectCityInHeading(text);
+  return looksDistrict || hasRai || hasCity;
 }
+
 function normalizeDistrict(text){
   let t = cleanText(text);
   if (!/район/i.test(t) && /(ский|ской|цкий|нский|минский|бинский|жский)\b/i.test(t)) t += ' район';
-  const cities = ['Краснодар','Сочи','Новороссийск','Анапа','Армавир','Геленджик','Горячий Ключ','Славянск-на-Кубани','Ейск','Темрюк','Туапсе','Лабинск','Крымск','Белореченск','Кореновск','Кропоткин','Тихорецк','Абинск','Усть-Лабинск','Динская','Каневская'];
-  for (const c of cities){ if (t.toLowerCase().includes(c.toLowerCase())) return 'ГО ' + c; }
-  if (/сириус/i.test(t)) return 'ГО Сириус';
+  const city = detectCityInHeading(text);
+  if (city) return `ГО ${city}`;
   return t;
 }
 
+/* ===== Парсер ===== */
 async function fetchHTML(title){
   const url = WIKI_REST(title);
   const r = await fetch(url, { headers: { accept: 'text/html' } });
@@ -180,7 +203,6 @@ async function fetchHTML(title){
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
-/* Итератор по соседним элементам до следующего заголовка уровня <= текущего */
 function* iterUntil(nextEl, stopAtLevel){
   let node = nextEl;
   while(node){
@@ -191,43 +213,71 @@ function* iterUntil(nextEl, stopAtLevel){
   }
 }
 
-/* Парсинг документа: собираем списки и таблицы под каждым "районным" заголовком */
+function cleanName(s){
+  return cleanText(s).replace(/^[-–—]\s*/,'').trim();
+}
+
+function extractCityFromLine(name){
+  // "город Туапсе", "г. Туапсе", "город-курорт Сочи"
+  let m = name.match(/^город-курорт\s+(.+)$/i) || name.match(/^город\s+(.+)$/i);
+  if (m) return cleanName(m[1]);
+  m = name.match(/^г\.\s*([А-ЯA-Za-zЁё -–—]+)$/);
+  if (m) return cleanName(m[1]);
+  return '';
+}
+
 function extractFromDoc(doc, regionLabel){
   const out = [];
   const headings = [...doc.querySelectorAll('h2, h3, h4')];
   for (const h of headings){
     const title = cleanText(h.textContent||'');
     if (!title || !isDistrictHeading(title)) continue;
-    const district = normalizeDistrict(title);
-    const thisLevel = lvl(h.tagName);
-    for (const sib of iterUntil(h.nextElementSibling, thisLevel)){
+
+    const ctxCity = detectCityInHeading(title);     // город из заголовка (если ГО)
+    const district = normalizeDistrict(title);      // "___ район" или "ГО ___"
+    const stopLevel = lvl(h.tagName);
+
+    for (const sib of iterUntil(h.nextElementSibling, stopLevel)){
       if (!sib) break;
 
+      // Списки
       if (sib.tagName === 'UL' || sib.tagName === 'OL'){
         sib.querySelectorAll(':scope > li').forEach(li=>{
-          let name = cleanText(li.textContent||'');
-          name = name.split('—')[0].split(' - ')[0].trim();
+          let raw = cleanText(li.textContent||'');
+          let name = raw.split('—')[0].split(' - ')[0].trim();
           if (!name) return;
           if (/ссылки|см\. также|примечания/i.test(name)) return;
           if (/район/i.test(name) && name.length<40) return;
-          if (/^город\s/i.test(name) && name.length<40) return;
-          if (name.split(' ').length>8) return; // отсечём предложения
-          out.push({ 'Регион': regionLabel, 'Район': district, 'Населённый пункт': name });
+
+          const cityFromLine = extractCityFromLine(name);
+          // если строка — это "город N", NP считаем самим городом, а столбец "Город" = N
+          if (cityFromLine){
+            out.push({ 'Район': district, 'Город': cityFromLine, 'Населённый пункт': cityFromLine, _region: regionLabel });
+            return;
+          }
+          // иначе обычный НП, город из контекста ГО (если есть)
+          out.push({ 'Район': district, 'Город': ctxCity || '', 'Населённый пункт': name, _region: regionLabel });
         });
       }
 
+      // Таблицы
       if (sib.tagName === 'TABLE'){
         const rows = [...sib.querySelectorAll('tr')];
         rows.forEach((tr, idx)=>{
           const cells = [...tr.children].map(td=>cleanText(td.textContent||''));
           if (!cells.length) return;
-          const isHeader = idx===0 && /наименование|населённый пункт/i.test(cells.join(' '));
-          if (isHeader) return;
+          const headerish = idx===0 && /наименование|населённый пункт/i.test(cells.join(' '));
+          if (headerish) return;
+
           let name = (cells[0]||'').split('—')[0].split(' - ')[0].trim();
           if (!name) return;
-          if (/район/i.test(name) && name.length<40) return;
-          if (name.split(' ').length>8) return;
-          out.push({ 'Регион': regionLabel, 'Район': district, 'Населённый пункт': name });
+
+          const cityFromLine = extractCityFromLine(name);
+          if (cityFromLine){
+            out.push({ 'Район': district, 'Город': cityFromLine, 'Населённый пункт': cityFromLine, _region: regionLabel });
+          } else {
+            out.push({ 'Район': district, 'Город': ctxCity || '', 'Населённый пункт': name, _region: regionLabel });
+          }
         });
       }
     }
@@ -235,22 +285,23 @@ function extractFromDoc(doc, regionLabel){
   return out;
 }
 
-/* Helpers: сортировка, дедуп, фильтрация, рендер таблицы */
+/* ===== Сортировка, дедуп, рендер ===== */
 function sortRows(rows){
   return rows.slice().sort((a,b)=>{
-    return (a['Регион']||'').localeCompare(b['Регион']||'','ru') ||
-           (a['Район']||'').localeCompare(b['Район']||'','ru') ||
+    return (a['Район']||'').localeCompare(b['Район']||'','ru') ||
+           (a['Город']||'').localeCompare(b['Город']||'','ru') ||
            (a['Населённый пункт']||'').localeCompare(b['Населённый пункт']||'','ru');
   });
 }
 function uniqRows(rows){
   const seen = new Set(); const out = [];
   for (const r of rows){
-    const k = [r['Регион'],r['Район'],r['Населённый пункт']].map(v=>String(v||'').toLowerCase()).join('||');
+    const k = [r['Район'],r['Город'],r['Населённый пункт']].map(v=>String(v||'').toLowerCase()).join('||');
     if (seen.has(k)) continue; seen.add(k); out.push(r);
   }
   return out;
 }
+
 function render(rows){
   const q = el.q.value.trim().toLowerCase();
   const grouped = el.chkGroup.checked;
@@ -258,17 +309,17 @@ function render(rows){
   let filtered = rows;
   if (q){
     filtered = rows.filter(r =>
-      (r['Регион']||'').toLowerCase().includes(q) ||
       (r['Район']||'').toLowerCase().includes(q) ||
+      (r['Город']||'').toLowerCase().includes(q) ||
       (r['Населённый пункт']||'').toLowerCase().includes(q)
     );
   }
 
   // метрики
   el.mTotal.textContent = String(filtered.length);
-  el.mKK.textContent = String(filtered.filter(r=>r['Регион']==='Краснодарский край').length);
-  el.mRA.textContent = String(filtered.filter(r=>r['Регион']==='Республика Адыгея').length);
-  el.mDistricts.textContent = String(new Set(filtered.map(r=>r['Регион']+'|'+r['Район'])).size);
+  el.mKK.textContent = String(filtered.filter(r=>r._region==='Краснодарский край').length);
+  el.mRA.textContent = String(filtered.filter(r=>r._region==='Республика Адыгея').length);
+  el.mDistricts.textContent = String(new Set(filtered.map(r=>r['Район']+'|'+(r['Город']||''))).size);
 
   const tb = el.tbody;
   tb.innerHTML = '';
@@ -283,39 +334,39 @@ function render(rows){
   if (!grouped){
     for (const r of filtered){
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r['Регион']}</td><td>${r['Район']}</td><td>${r['Населённый пункт']}</td>`;
+      tr.innerHTML = `<td>${r['Район']}</td><td>${r['Город']||''}</td><td>${r['Населённый пункт']}</td>`;
       tb.appendChild(tr);
     }
     return;
   }
 
-  // Группируем по Регион → Район
+  // Группировка по Район → Город
   const groups = new Map();
   for (const r of filtered){
-    const key = r['Регион']+'||'+r['Район'];
+    const key = r['Район']+'||'+(r['Город']||'');
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   }
   for (const [key, arr] of groups){
-    const [region, dist] = key.split('||');
+    const [dist, city] = key.split('||');
     const trH = document.createElement('tr');
-    trH.innerHTML = `<td>${region}</td><td colspan="2"><span class="muted">Район/ГО:</span> <b>${dist}</b> · <span class="muted">НП:</span> ${arr.length}</td>`;
+    trH.innerHTML = `<td><b>${dist}</b></td><td colspan="2"><span class="muted">Город:</span> <b>${city||'—'}</b> · <span class="muted">НП:</span> ${arr.length}</td>`;
     trH.style.background = '#0e1a31';
     tb.appendChild(trH);
     for (const r of arr){
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="muted">${region}</td><td class="muted">${dist}</td><td>${r['Населённый пункт']}</td>`;
+      tr.innerHTML = `<td class="muted">${dist}</td><td class="muted">${city||''}</td><td>${r['Населённый пункт']}</td>`;
       tb.appendChild(tr);
     }
   }
 }
 
-/* Экспорт */
+/* ===== Экспорт: строго "Район, Город, Населённый пункт" ===== */
 function toCSV(rows){
-  const header = ['Регион','Район','Населённый пункт'];
-  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+  const header = ['Район','Город','Населённый пункт'];
+  const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
   const lines = [header.map(esc).join(',')];
-  for (const r of rows){ lines.push([r['Регион'],r['Район'],r['Населённый пункт']].map(esc).join(',')); }
+  for (const r of rows){ lines.push([r['Район'],r['Город']||'',r['Населённый пункт']].map(esc).join(',')); }
   return lines.join('\r\n');
 }
 function downloadBlob(filename, blob){
@@ -326,24 +377,23 @@ function downloadBlob(filename, blob){
 function saveCSV(rows){
   const ts = new Date().toISOString().slice(0,10);
   const csv = toCSV(rows);
-  downloadBlob(`krasnodar_adygea_nasel_punkty_${ts}.csv`, new Blob([csv], {type:'text/csv;charset=utf-8;'}));
+  downloadBlob(`krasnodar_adygea_rayon_gorod_np_${ts}.csv`, new Blob([csv], {type:'text/csv;charset=utf-8;'}));
 }
 function saveXLSX(rows){
   const ts = new Date().toISOString().slice(0,10);
-  const header = ['Регион','Район','Населённый пункт'];
-  const data = [header, ...rows.map(r => [r['Регион'], r['Район'], r['Населённый пункт']])];
+  const header = ['Район','Город','Населённый пункт'];
+  const data = [header, ...rows.map(r => [r['Район'], r['Город']||'', r['Населённый пункт']])];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  // Ширина колонок по максимальной длине
   const colWidths = [0,1,2].map(ci => ({ wch: Math.max(...data.map(r => String(r[ci]||'').length), 10)+2 }));
   ws['!cols'] = colWidths;
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Данные');
   const xbuf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-  downloadBlob(`krasnodar_adygea_nasel_punkty_${ts}.xlsx`,
+  downloadBlob(`krasnodar_adygea_rayon_gorod_np_${ts}.xlsx`,
                new Blob([xbuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
 }
 
-/* Основной сценарий */
-let ALL_ROWS = []; // хранит полный набор после последней загрузки
+/* ===== Основной сценарий ===== */
+let ALL_ROWS = [];
 
 async function run(){
   el.btnRun.disabled = true; el.btnXLSX.disabled = true; el.btnCSV.disabled = true;
@@ -360,35 +410,31 @@ async function run(){
       log(`Найдено строк: ${rows.length} (${p.region})`);
       ALL_ROWS.push(...rows);
     }catch(e){
-      log(`Ошибка для «${p.region}»: ${e.message}`, 'err');
+      log(`Ошибка для «${p.region}»: ${e.message}`);
     }
   }
 
   if (!ALL_ROWS.length){
-    log('Нет данных. Возможно, REST API недоступен или структура страниц изменилась.', 'err');
+    log('Нет данных. Возможно, REST API недоступен или структура страниц изменилась.');
     el.tbody.innerHTML = `<tr><td colspan="3" class="muted">Данных не получено</td></tr>`;
     el.btnRun.disabled = false;
     return;
   }
 
-  // Дедуп + сортировка
   ALL_ROWS = sortRows(uniqRows(ALL_ROWS));
-  log(`Итог после дедупликации: ${ALL_ROWS.length} строк`, 'ok');
+  log(`Итог после дедупликации: ${ALL_ROWS.length} строк`);
 
   render(ALL_ROWS);
   el.btnXLSX.disabled = false; el.btnCSV.disabled = false;
   el.btnRun.disabled = false;
 }
 
-/* Слушатели */
+/* ===== Слушатели ===== */
 el.btnRun.addEventListener('click', run);
 el.btnCSV.addEventListener('click', ()=> saveCSV(ALL_ROWS));
 el.btnXLSX.addEventListener('click', ()=> saveXLSX(ALL_ROWS));
 el.q.addEventListener('input', ()=> render(ALL_ROWS));
-el.chkKK.addEventListener('change', ()=> { /* пересбор */ });
-el.chkRA.addEventListener('change', ()=> { /* пересбор */ });
 el.chkGroup.addEventListener('change', ()=> render(ALL_ROWS));
-
 </script>
 </body>
 </html>
