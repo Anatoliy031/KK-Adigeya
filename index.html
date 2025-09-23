@@ -1,309 +1,528 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ОКТМО → Регион · Район · (городское|сельское) поселение — устойчивый загрузчик</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>
-  :root{--bg:#0b1220;--fg:#e8eefc;--mut:#a8bfe9;--card:#0f1a30;--line:#203357;--acc:#63b2ff}
-  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1200px;margin:24px auto;padding:18px}
-  header{background:linear-gradient(180deg,#0c1629,#0a1120);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
-  h1{margin:0 0 6px;font-size:20px;font-weight:800} p.lead{margin:0;color:var(--mut);line-height:1.55}
-  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
-  .btn{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#11234a;color:#e9f1ff;font-weight:700;cursor:pointer}
-  .btn:hover{filter:brightness(1.08)} .btn[disabled]{opacity:.6;cursor:not-allowed}
-  .chip{background:#0e1b34;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:inline-flex;align-items:center;gap:8px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-  .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
-  @media(min-width:1000px){.grid{grid-template-columns:1.25fr .75fr}}
-  .search input{width:100%;padding:10px 12px;background:#0f1c36;border:1px solid var(--line);border-radius:10px;color:#e9f1ff}
-  table{width:100%;border-collapse:separate;border-spacing:0;background:#0f1b34;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  thead th{position:sticky;top:0;background:#0e1a31;border-bottom:1px solid var(--line);text-align:left;padding:10px;font-size:13px}
-  tbody td{padding:10px;border-bottom:1px solid #142447;font-size:13px} tbody tr:hover{background:#0e1a31}
-  .mut{color:var(--mut)} .status{font:12.5px ui-monospace,Menlo,Consolas,monospace;background:#0d172c;border:1px dashed var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;max-height:260px;overflow:auto}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Населенные пункты Краснодарского края и Республики Адыгея</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-card .number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .search-box {
+            position: relative;
+            max-width: 500px;
+            margin: 0 auto 20px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px 12px 45px;
+            border: 2px solid #dee2e6;
+            border-radius: 50px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #adb5bd;
+        }
+        
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 20px;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .filter-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .table-container {
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        thead {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        
+        th:hover {
+            background: #e9ecef;
+        }
+        
+        th.sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 10px;
+            opacity: 0.5;
+        }
+        
+        th.sorted-asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+        
+        th.sorted-desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        tbody tr {
+            transition: all 0.3s;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+        
+        .region-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .region-kk {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .region-ra {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .type-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .stats {
+                gap: 20px;
+            }
+            
+            .table-container {
+                padding: 10px;
+            }
+            
+            th, td {
+                padding: 8px;
+                font-size: 14px;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Регион → Муниципальный район → (городское|сельское) поселение (ОКТМО)</h1>
-    <p class="lead">Надёжная загрузка: приоритетно читает <b>OKTMO.xlsx</b>, но поддерживает и <b>CSV</b> — с автоопределением кодировки (UTF-8/Windows-1251/KOI8-R) и «мягким» парсингом.</p>
-    <div class="controls">
-      <button id="btnXLSXUrl" class="btn" title="Рекомендуется">Загрузить XLSX с classifikators.ru</button>
-      <button id="btnCSVUrl"  class="btn">Загрузить CSV с classifikators.ru</button>
-      <input id="file" type="file" accept=".xlsx,.csv" style="display:none">
-      <button id="btnFile" class="btn">Выбрать файл (XLSX/CSV)</button>
-      <label class="chip"><input id="onlyKR" type="checkbox" checked> Краснодарский край</label>
-      <label class="chip"><input id="onlyAD" type="checkbox" checked> Республика Адыгея</label>
-      <label class="chip" title="Добавить строки по городским округам как отдельные записи"><input id="withGO" type="checkbox"> Включить ГО</label>
-      <button id="btnXLSX" class="btn" disabled>Скачать XLSX</button>
-      <button id="btnCSV"  class="btn" disabled>Скачать CSV</button>
-      <button id="btnJSON" class="btn" disabled>Скачать JSON</button>
+    <div class="container">
+        <div class="header">
+            <h1>Населенные пункты Краснодарского края и Республики Адыгея</h1>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="number" id="total-count">207</div>
+                    <div class="label">Всего населенных пунктов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">141</div>
+                    <div class="label">Краснодарский край</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">66</div>
+                    <div class="label">Республика Адыгея</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Поиск по названию, району или типу...">
+            </div>
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">Все регионы</button>
+                <button class="filter-btn" data-filter="kk">Краснодарский край</button>
+                <button class="filter-btn" data-filter="ra">Республика Адыгея</button>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="0">№</th>
+                        <th class="sortable" data-column="1">Регион</th>
+                        <th class="sortable" data-column="2">Район</th>
+                        <th class="sortable" data-column="3">Населенный пункт</th>
+                        <th class="sortable" data-column="4">Тип поселения</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div id="noResults" class="no-results" style="display: none;">
+                Ничего не найдено
+            </div>
+        </div>
     </div>
-  </header>
 
-  <div class="grid">
-    <section class="card">
-      <div style="margin-bottom:10px" class="search"><input id="q" placeholder="Поиск по региону / району / типу / поселению / центру…"></div>
-      <div style="max-height:60vh;overflow:auto;border-radius:12px">
-        <table>
-          <thead><tr>
-            <th style="width:210px">Регион</th>
-            <th style="width:260px">Район</th>
-            <th style="width:170px">Тип</th>
-            <th>Поселение</th>
-            <th style="width:230px">Адм. центр</th>
-          </tr></thead>
-          <tbody id="tbody"><tr><td colspan="5" class="mut">Выберите способ загрузки</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-    <aside class="card"><div class="status" id="log">Готов.\n</div></aside>
-  </div>
-</div>
-
-<script>
-const URL_XLSX = 'https://classifikators.ru/assets/downloads/oktmo/oktmo.xlsx';
-const URL_CSV  = 'https://classifikators.ru/assets/downloads/oktmo/oktmo.csv';
-
-const el = {
-  btnXLSXUrl: document.getElementById('btnXLSXUrl'),
-  btnCSVUrl:  document.getElementById('btnCSVUrl'),
-  btnFile:    document.getElementById('btnFile'),
-  file:       document.getElementById('file'),
-  btnXLSX:    document.getElementById('btnXLSX'),
-  btnCSV:     document.getElementById('btnCSV'),
-  btnJSON:    document.getElementById('btnJSON'),
-  // Duplicate reference for CSV URL button to avoid case-sensitive mismatches
-  btnCsvUrl:  document.getElementById('btnCSVUrl'),
-  onlyKR:     document.getElementById('onlyKR'),
-  onlyAD:     document.getElementById('onlyAD'),
-  withGO:     document.getElementById('withGO'),
-  q:          document.getElementById('q'),
-  tbody:      document.getElementById('tbody'),
-  log:        document.getElementById('log'),
-};
-function log(s){ el.log.textContent += s + '\n'; el.log.scrollTop = el.log.scrollHeight; }
-function clean(s){ return (s||'').replace(/[\u200b\u00A0]/g,' ').replace(/\s+/g,' ').trim(); }
-let rawRows = [];   // исходные строки из файла (объекты по колонкам)
-let output  = [];   // итоговая таблица для выгрузки
-
-/* === ЧТЕНИЕ XLSX (рекомендуемый путь) === */
-async function loadXLSXFromUrl(){
-  try{
-    log('Скачиваю OKTMO.xlsx…');
-    const buf = await (await fetch(URL_XLSX,{cache:'no-store'})).arrayBuffer();
-    handleXLSXBuffer(buf);
-  }catch(e){ log('Ошибка XLSX: '+e.message); }
-}
-function handleXLSXBuffer(buf){
-  const wb = XLSX.read(buf, {type:'array'});
-  const wsName = wb.SheetNames[0];
-  const ws = wb.Sheets[wsName];
-  const arr = XLSX.utils.sheet_to_json(ws, {defval:''});
-  rawRows = normalizeColumns(arr);
-  log(`XLSX: считано строк: ${rawRows.length}`);
-  rebuild();
-}
-
-/* === ЧТЕНИЕ CSV с устойчивостью к кодировкам и «битым» кавычкам === */
-async function loadCSVFromUrl(){
-  try{
-    log('Скачиваю OKTMO.csv…');
-    const buf = await (await fetch(URL_CSV,{cache:'no-store'})).arrayBuffer();
-    handleCSVBuffer(buf);
-  }catch(e){ log('Ошибка CSV (скачивание): '+e.message); }
-}
-function handleCSVBuffer(buf){
-  const encs = ['utf-8','windows-1251','koi8-r'];
-  for(const enc of encs){
-    try{
-      const text = new TextDecoder(enc).decode(buf);
-      const rows = parseCSVRobust(text);
-      rawRows = normalizeColumns(rows);
-      log(`CSV (${enc}): считано строк: ${rawRows.length}`);
-      rebuild();
-      return;
-    }catch(e){
-      log(`CSV (${enc}): ${e.message}`);
-      continue;
-    }
-  }
-  log('CSV: не удалось распарсить ни в одной кодировке.');
-}
-function parseCSVRobust(text){
-  const base = Papa.parse(text, {delimiter:';', header:true, skipEmptyLines:'greedy'});
-  if(!base.errors.length) return base.data;
-  const hasQuoteErr = base.errors.some(e => /quote/i.test(e.message));
-  if(hasQuoteErr){
-    const alt = Papa.parse(text, {delimiter:';', header:true, skipEmptyLines:'greedy', quotes:false});
-    if(!alt.errors.length) return alt.data;
-  }
-  const sanitized = text.replace(/\r\n?/g,'\n').replace(/[\uFEFF]/g,'');
-  const last = Papa.parse(sanitized, {delimiter:';', header:true, skipEmptyLines:'greedy'});
-  if(!last.errors.length) return last.data;
-  throw new Error('Ошибка CSV: '+(base.errors[0]?.message||'неизвестная'));
-}
-
-/* === НОРМАЛИЗАЦИЯ КОЛОНОК === */
-function normalizeColumns(rows){
-  const pick = (obj, keys)=> keys.find(k=>k in obj) || '';
-  return rows.map(r=>{
-    const o={}; Object.keys(r).forEach(k=>{ o[clean(k)] = r[k]; });
-    const TER  = String(o[pick(o, ['TER','ТER','ТЕР','Код региона','TER ')]||'']).padStart(2,'0');
-    const K1   = String(o[pick(o, ['KOD1','КОД1','Код1','KOD 1'])]||'').padStart(3,'0');
-    const K2   = String(o[pick(o, ['KOD2','КОД2','Код2','KOD 2'])]||'').padStart(3,'0');
-    const K3   = String(o[pick(o, ['KOD3','КОД3','Код3','KOD 3'])]||'').padStart(3,'0');
-    const RAZ  = String(o[pick(o, ['RAZDEL','Раздел','SECTION'])]||'').trim();
-    const NAME = clean(o[pick(o, ['NAME1','Наименование','Name','NAME'])]||'');
-    const CTR  = clean(o[pick(o, ['Centrum','Центр','Адм. центр','Center'])]||'');
-    return {TER:TER||'',K1:K1||'',K2:K2||'',K3:K3||'',RAZ:RAZ||'',NAME,CTR};
-  });
-}
-
-/* === ПОСТРОЕНИЕ ТАБЛИЦЫ === */
-function rebuild(){
-  const byRegion = new Map();
-  const parents  = new Map();
-  const mo2      = new Map();
-  const GOset    = new Set();
-
-  for(const r of rawRows){
-    if(r.RAZ!=='1') continue;
-    const keyReg = r.TER;
-    const keyPar = r.TER + r.K1;
-    const keyMO2 = r.TER + r.K1 + r.K2;
-    const name = r.NAME;
-    const low  = name.toLowerCase();
-
-    if(r.K1==='000' && r.K2==='000'){
-      byRegion.set(keyReg, name);
-      continue;
-    }
-    if(/муниципальный район/.test(low)){
-      parents.set(keyPar, {name: name.replace(/муниципальный район\s*/i,'').trim(), type:'муниципальный район'});
-      continue;
-    }
-    if(/городской округ/.test(low) && !/внутриг/.test(low)){
-      parents.set(keyPar, {name: name.replace(/городской округ\s*/i,'').trim(), type:'городской округ'});
-      GOset.add(keyPar);
-      continue;
-    }
-    if(/(сельское|городское)\s+поселение/.test(low)){
-      const type = /сельское/.test(low) ? 'сельское поселение' : 'городское поселение';
-      const nice = name.replace(/\s*(городское|сельское)\s*поселение/i,'').trim();
-      mo2.set(keyMO2, {name:nice, type, center:r.CTR||''});
-    }
-  }
-
-  const want = new Set();
-  for(const [ter, nm] of byRegion){
-    const v = (nm||'').toLowerCase();
-    if(el.onlyKR.checked && /краснодарский край/.test(v)) want.add(ter);
-    if(el.onlyAD.checked && /республика адыгея/.test(v))   want.add(ter);
-  }
-
-  const out=[];
-  for(const [k, mo] of mo2){
-    const TER = k.slice(0,2), K1 = k.slice(2,5);
-    if(!want.has(TER)) continue;
-    const region = byRegion.get(TER) || '';
-    const par = parents.get(TER+K1) || {name:'', type:''};
-    const district = par.type==='муниципальный район' ? par.name : '';
-    out.push({region, district, type:mo.type, name:mo.name, center:mo.center});
-  }
-  if(el.withGO.checked){
-    for(const key of GOset){
-      const TER = key.slice(0,2);
-      if(!want.has(TER)) continue;
-      const region = byRegion.get(TER)||'';
-      const d = parents.get(key);
-      out.push({region, district:'', type:'городской округ', name:d?.name||'', center:d?.name||''});
-    }
-  }
-
-  const seen=new Set(), fin=[];
-  for(const r of out){
-    const id=[r.region,r.district,r.type,r.name,r.center].map(x=>String(x||'').toLowerCase()).join('|');
-    if(seen.has(id)) continue; seen.add(id); fin.push(r);
-  }
-  fin.sort((a,b)=>
-    (a.region||'').localeCompare(b.region||'','ru') ||
-    (a.district||'').localeCompare(b.district||'','ru') ||
-    (a.type||'').localeCompare(b.type||'','ru') ||
-    (a.name||'').localeCompare(b.name||'','ru')
-  );
-
-  output = fin;
-  render();
-  el.btnXLSX.disabled = el.btnCSV.disabled = el.btnJSON.disabled = false;
-}
-
-/* === UI: рендер и экспорт === */
-function render(){
-  const q = clean(el.q.value||'').toLowerCase();
-  const tb = el.tbody; tb.innerHTML='';
-  let r = output;
-  if(q){
-    r = r.filter(x =>
-      (x.region||'').toLowerCase().includes(q) ||
-      (x.district||'').toLowerCase().includes(q) ||
-      (x.type||'').toLowerCase().includes(q) ||
-      (x.name||'').toLowerCase().includes(q) ||
-      (x.center||'').toLowerCase().includes(q)
-    );
-  }
-  if(!r.length){ tb.innerHTML = '<tr><td colspan="5" class="mut">Ничего не найдено</td></tr>'; return; }
-  for(const x of r){
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${x.region}</td><td>${x.district||''}</td><td>${x.type}</td><td>${x.name}</td><td>${x.center||''}</td>`;
-    tb.appendChild(tr);
-  }
-}
-function toCSV(rows){
-  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const head=['Регион','Район','Тип','Поселение','Адм. центр'].map(esc).join(',');
-  const body=rows.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''].map(esc).join(',')).join('\r\n');
-  return head+'\r\n'+body;
-}
-function save(name, blob){ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-function saveCSV(){ save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.csv`, new Blob([toCSV(output)],{type:'text/csv;charset=utf-8;'})); }
-function saveJSON(){ save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.json`, new Blob([JSON.stringify(output,null,2)],{type:'application/json'})); }
-function saveXLSX(){
-  const data=[['Регион','Район','Тип','Поселение','Адм. центр'], ...output.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''])];
-  const ws=XLSX.utils.aoa_to_sheet(data); ws['!cols']=[{wch:22},{wch:28},{wch:22},{wch:36},{wch:28}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Поселения');
-  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'}); save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.xlsx`, new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-}
-
-/* === Обработчики === */
-el.btnXLSXUrl.addEventListener('click', loadXLSXFromUrl);
-// Use btnCsvUrl (case-sensitive) to attach event handler to CSV loader button
-el.btnCsvUrl.addEventListener('click',  loadCSVFromUrl);
-el.btnFile.addEventListener('click', ()=> el.file.click());
-el.file.addEventListener('change', e=>{
-  const f = e.target.files[0]; if(!f) return;
-  const ext = (f.name.split('.').pop()||'').toLowerCase();
-  const reader = new FileReader();
-  if(ext === 'xlsx'){
-    reader.onload = ev => handleXLSXBuffer(ev.target.result);
-    reader.readAsArrayBuffer(f);
-  }else{
-    reader.onload = ev => { handleCSVBuffer(ev.target.result); };
-    reader.readAsArrayBuffer(f);
-  }
-});
-el.onlyKR.addEventListener('change', rebuild);
-el.onlyAD.addEventListener('change', rebuild);
-el.withGO.addEventListener('change', rebuild);
-el.q.addEventListener('input', render);
-el.btnCSV.addEventListener('click', saveCSV);
-el.btnJSON.addEventListener('click', saveJSON);
-el.btnXLSX.addEventListener('click', saveXLSX);
-</script>
+    <script>
+        const data = [
+            // Краснодарский край - Горячеключевской район
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "п.Первомайский", type: "поселок"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "п.Приреченский", type: "поселок"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "пос. Первомайский", type: "поселок"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "пос.Первомайский", type: "поселок"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "пос.Приреченский", type: "поселок"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Бакинская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Имеретинская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Кутаисская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Мартанская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Саратовская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Суздальская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "ст. Черноморская", type: "станица"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "х.Молькин", type: "хутор"},
+            {region: "Краснодарский край", district: "Горячеключевской район", settlement: "х.Сорокин", type: "хутор"},
+            
+            // Краснодарский край - Динской район
+            {region: "Краснодарский край", district: "Динской район", settlement: "п. Агроном", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "п. Найдорф", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "п. Украинский", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "п. Янтарный", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "пос. Вишняки", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "пос. Зарождение", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "пос. Кочетинский", type: "поселок"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "с. Красносельское", type: "село"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "с. Первореченское", type: "село"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Васюринская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Динская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Нововеличковская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Новотитаровская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Пластуновская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "ст. Старомышастовская", type: "станица"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "х. Карла Маркса", type: "хутор"},
+            {region: "Краснодарский край", district: "Динской район", settlement: "х. Осечки", type: "хутор"},
+            
+            // Краснодарский край - г. Краснодар и пригород
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "г.Краснодар", type: "город"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "п. Дружелюбный", type: "поселок"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "п. Индустриальный", type: "поселок"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "п. Лазурный", type: "поселок"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "п. Южный", type: "поселок"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "пгт. Лазурный", type: "поселок городского типа"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "ст. Елизаветинская", type: "станица"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "ст. Старокорсунская", type: "станица"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "х. Копанской", type: "хутор"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "х. Ленина", type: "хутор"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "х. Новый", type: "хутор"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "х. Октябрьский", type: "хутор"},
+            {region: "Краснодарский край", district: "г. Краснодар и пригород", settlement: "х. Черников", type: "хутор"},
+            
+            // Краснодарский край - Северский район
+            {region: "Краснодарский край", district: "Северский район", settlement: "п. Афипский", type: "поселок"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "п. Октябрьский", type: "поселок"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "п. Тхамаха", type: "поселок"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "пгт. Афипский", type: "поселок городского типа"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "пгт. Ильский", type: "поселок городского типа"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "с. Львовское", type: "село"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "с. Михайловское", type: "село"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "с. Шабановское", type: "село"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Азовская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Григорьевская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Дербентская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Калужская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Крепостная", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Новодмитриевская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Северская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Смоленская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Ставропольская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "ст. Убинская", type: "станица"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Ананьевский", type: "хутор"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Восточный", type: "хутор"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Коваленко", type: "хутор"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Красный", type: "хутор"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Новоивановский", type: "хутор"},
+            {region: "Краснодарский край", district: "Северский район", settlement: "х. Оазис", type: "хутор"},
+            
+            // Республика Адыгея - Теучежский район
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Габукай", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Гатлукай", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Кунчукохабль", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Начерезий", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Понежукай", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Псекупс", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Пчегатлукай", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Пшикуйхабль", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "а. Тугургой", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "аул Ассоколай", type: "аул"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "г. Адыгейск", type: "город"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "п. Псекупс", type: "поселок"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "п. Четук-2", type: "поселок"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "пгт. Тлюстенхабль", type: "поселок городского типа"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "с. Красное", type: "село"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "х. Казаково", type: "хутор"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "х. Красненский", type: "хутор"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "х. Красный", type: "хутор"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "х. Петров", type: "хутор"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "хутор Псекупс", type: "хутор"},
+            {region: "Республика Адыгея", district: "Теучежский район", settlement: "хутор Шевченко", type: "хутор"},
+            
+            // Республика Адыгея - Тахтамукайский район
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Афипсип", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Козет", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Натухай", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Новая Адыгея", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Новобжегокай", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Панахес", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Псейтук", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Старобжегокай", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Тахтамукай", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Хаштук", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "а. Шенджий", type: "аул"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Дружный", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Кубаньстрой", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Новый", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Отрадный", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Перекатный", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Прикубанский", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Энем", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "п. Яблоновский", type: "поселок"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "пгт. Энем", type: "поселок городского типа"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "пгт. Яблоновский", type: "поселок городского типа"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "х. Суповский", type: "хутор"},
+            {region: "Республика Адыгея", district: "Тахтамукайский район", settlement: "х. Хомуты", type: "хутор"}
+        ];
+        
+        let currentFilter = 'all';
+        let currentSort = { column: -1, direction: 'asc' };
+        let filteredData = [...data];
+        
+        function renderTable(dataToRender) {
+            const tbody = document.getElementById('tableBody');
+            const noResults = document.getElementById('noResults');
+            
+            if (dataToRender.length === 0) {
+                tbody.innerHTML = '';
+                noResults.style.display = 'block';
+                document.getElementById('total-count').textContent = '0';
+                return;
+            }
+            
+            noResults.style.display = 'none';
+            document.getElementById('total-count').textContent = dataToRender.length;
+            
+            tbody.innerHTML = dataToRender.map((row, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><span class="region-badge ${row.region === 'Краснодарский край' ? 'region-kk' : 'region-ra'}">${row.region}</span></td>
+                    <td>${row.district}</td>
+                    <td><strong>${row.settlement}</strong></td>
+                    <td><span class="type-badge">${row.type}</span></td>
+                </tr>
+            `).join('');
+        }
+        
+        function filterData() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredData = data.filter(row => {
+                const matchesFilter = currentFilter === 'all' || 
+                    (currentFilter === 'kk' && row.region === 'Краснодарский край') ||
+                    (currentFilter === 'ra' && row.region === 'Республика Адыгея');
+                
+                const matchesSearch = !searchValue || 
+                    row.region.toLowerCase().includes(searchValue) ||
+                    row.district.toLowerCase().includes(searchValue) ||
+                    row.settlement.toLowerCase().includes(searchValue) ||
+                    row.type.toLowerCase().includes(searchValue);
+                
+                return matchesFilter && matchesSearch;
+            });
+            
+            if (currentSort.column !== -1) {
+                sortData(currentSort.column, currentSort.direction);
+            } else {
+                renderTable(filteredData);
+            }
+        }
+        
+        function sortData(column, direction = 'asc') {
+            const sortedData = [...filteredData].sort((a, b) => {
+                const keys = ['index', 'region', 'district', 'settlement', 'type'];
+                const key = keys[column];
+                
+                let aVal = column === 0 ? filteredData.indexOf(a) : a[key];
+                let bVal = column === 0 ? filteredData.indexOf(b) : b[key];
+                
+                if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            renderTable(sortedData);
+        }
+        
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', filterData);
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.dataset.filter;
+                filterData();
+            });
+        });
+        
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', function() {
+                const column = parseInt(this.dataset.column);
+                const newDirection = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
+                
+                document.querySelectorAll('th').forEach(h => {
+                    h.classList.remove('sorted-asc', 'sorted-desc');
+                });
+                
+                this.classList.add(`sorted-${newDirection}`);
+                
+                currentSort = { column, direction: newDirection };
+                sortData(column, newDirection);
+            });
+        });
+        
+        // Initial render
+        renderTable(data);
+    </script>
 </body>
 </html>
