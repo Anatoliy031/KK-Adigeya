@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Экспорт таблицы “Район — Населённый пункт” (Краснодарский край + Адыгея)</title>
+<style>
+  :root{--bg:#0b1220;--fg:#e8eefc;--card:#121a2b;--acc:#59b2ff;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+  .wrap{max-width:980px;margin:40px auto;padding:24px;background:linear-gradient(180deg,#0c1629 0%,#0a1020 100%);border:1px solid #1e2b4a;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.35)}
+  h1{font-size:22px;margin:0 0 10px;font-weight:800;letter-spacing:.2px}
+  p{opacity:.9;line-height:1.55}
+  code{background:#0e1a34;color:#cfe3ff;padding:2px 6px;border-radius:6px}
+  button{padding:12px 16px;border-radius:10px;border:1px solid #2b3a60;background:#102045;color:#dfe9ff;font-weight:700;cursor:pointer}
+  button:hover{filter:brightness(1.1)}
+  .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:14px 0 0}
+  .status{background:var(--card);border:1px dashed #2a3d69;border-radius:12px;padding:12px 14px;white-space:pre-wrap;max-height:360px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  .ok{color:#86efac}.warn{color:#fde68a}.err{color:#fca5a5}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Экспорт “Район — Населённый пункт” · Краснодарский край + Республика Адыгея</h1>
+  <p>
+    Инструмент в один клик: забирает списки населённых пунктов с русской Википедии
+    (<a target="_blank" href="https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D1%91%D0%BD%D0%BD%D1%8B%D0%B5_%D0%BF%D1%83%D0%BD%D0%BA%D1%82%D1%8B_%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B4%D0%B0%D1%80%D1%81%D0%BA%D0%BE%D0%B3%D0%BE_%D0%BA%D1%80%D0%B0%D1%8F">КК</a>,
+    <a target="_blank" href="https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D1%91%D0%BD%D0%BD%D1%8B%D0%B5_%D0%BF%D1%83%D0%BD%D0%BA%D1%82%D1%8B_%D0%90%D0%B4%D1%8B%D0%B3%D0%B5%D0%B8">РА</a>)
+    через официальный REST-API, парсит по районам/городским округам и
+    автоматически скачивает CSV с колонками <code>Район</code>, <code>Населённый пункт</code>.
+  </p>
+  <div class="row">
+    <button id="runBtn">Собрать и скачать CSV</button>
+    <span id="hint" class="warn">Требуется интернет. Работает локально в браузере (без серверов).</span>
+  </div>
+  <pre class="status" id="log"></pre>
+</div>
+<script>
+const PAGES = [
+  { title: 'Населённые_пункты_Краснодарского_края', region: 'Краснодарский край' },
+  { title: 'Населённые_пункты_Адыгеи', region: 'Республика Адыгея' }
+];
+
+const WIKI_REST = (title) => `https://ru.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
+
+const logEl = document.getElementById('log');
+function log(msg, cls='') {
+  const line = cls ? `%c${msg}` : msg;
+  const styles = cls==='ok' ? 'color:#86efac' : cls==='warn' ? 'color:#fde68a' : cls==='err' ? 'color:#fca5a5' : '';
+  if (styles) {
+    console.log(msg, styles);
+  } else {
+    console.log(msg);
+  }
+  logEl.textContent += msg + "\\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function cleanText(s) {
+  return (s||'')
+    .replace(/\\[\\d+\\]/g, '')           // [1], [2]
+    .replace(/\\s+\\(.*?\\)\\s*$/,'')     // trailing (...) notes
+    .replace(/[\\u200b\\u00A0]/g,' ')     // nbsp/zwsp
+    .replace(/\\s+/g,' ')
+    .trim();
+}
+
+function isDistrictHeading(text) {
+  // Heuristics: district or city sections
+  const t = text.toLowerCase();
+  // District names on pages are typically like "Абинский", "Динской", "Туапсинский" etc.
+  const districtLike = /(ский|ской|цкий|нский|минский|бинский|чарский|жский)$/i.test(text);
+  const hasRai = t.includes('район');
+  const isCity = t.startsWith('город ');
+  const isGO = t.includes('(го)') || t.includes('город-курорт') || t.includes('сириус') || t.includes('горячий ключ') || t.includes('сочи') || t.includes('краснодар') || t.includes('новороссийск') || t.includes('анапа') || t.includes('армавир');
+  return districtLike || hasRai || isCity || isGO;
+}
+
+function normalizeDistrict(text) {
+  let t = cleanText(text);
+  // Normalize: ensure it ends with "район" if looks like district bare name.
+  if (!/район/i.test(t) && /(ский|ской|цкий|нский|минский|бинский|жский)$/i.test(t)) {
+    t = t + ' район';
+  }
+  // Map well-known GO to "ГО <город>"
+  const cities = ['Краснодар','Сочи','Новороссийск','Анапа','Армавир','Геленджик','Горячий Ключ','Ейск','Крымск','Кропоткин','Славянск-на-Кубани','Тихорецк','Туапсе','Лабинск','Белореченск','Темрюк','Абинск','Динская','Каневская','Кореновск','Усть-Лабинск'];
+  for (const c of cities) {
+    if (t.toLowerCase().includes(c.toLowerCase())) {
+      return 'ГО ' + c;
+    }
+  }
+  if (/сириус/i.test(t)) return 'ГО Сириус';
+  return t;
+}
+
+async function fetchHTML(title) {
+  const url = WIKI_REST(title);
+  const res = await fetch(url, { headers: { 'accept': 'text/html' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${title}`);
+  const html = await res.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc;
+}
+
+function* iterSubtreeUntil(next, stopNodeNames) {
+  let node = next;
+  while (node) {
+    if (stopNodeNames.includes(node.nodeName)) break;
+    yield node;
+    node = node.nextElementSibling;
+  }
+}
+
+function extractFromDoc(doc, regionLabel) {
+  const out = [];
+  const headings = [...doc.querySelectorAll('h2, h3, h4')];
+  for (let i=0;i<headings.length;i++) {
+    const h = headings[i];
+    const title = cleanText(h.textContent || '');
+    if (!title) continue;
+    if (!isDistrictHeading(title)) continue;
+    const district = normalizeDistrict(title);
+    // collect lists until next heading of same or higher level
+    const stopNames = ['H2','H3','H4'];
+    for (const sib of iterSubtreeUntil(h.nextElementSibling, stopNames)) {
+      if (!sib) break;
+      // ul/li
+      if (sib.tagName === 'UL' || sib.tagName === 'OL') {
+        sib.querySelectorAll(':scope > li').forEach(li => {
+          let name = cleanText(li.textContent || '');
+          // Split if "—" details present
+          name = name.split('—')[0].split(' - ')[0].trim();
+          // Drop empty/headers
+          if (!name) return;
+          // Filter lines that are not actual NP (e.g., "см. также")
+          if (/ссылки|см\\. также|примечания/i.test(name)) return;
+          // Prevent adding headings repeated
+          if (/район/i.test(name) && name.length<40) return;
+          // Avoid collecting city header names again
+          if (/^город\\s/i.test(name) && name.length<40) return;
+          // Skip if it's a whole sentence
+          if (name.split(' ').length>7) return;
+          out.push({ 'Регион': regionLabel, 'Район': district, 'Населённый пункт': name });
+        });
+      }
+      // tables: pick first column cells
+      if (sib.tagName === 'TABLE') {
+        const rows = [...sib.querySelectorAll('tr')];
+        rows.forEach((tr, idx) => {
+          const cells = [...tr.children].map(td => cleanText(td.textContent||''));
+          if (cells.length===0) return;
+          // skip header
+          if (idx===0 && /наименование|населённый пункт/i.test(cells.join(' '))) return;
+          let name = cells[0] || '';
+          name = name.split('—')[0].split(' - ')[0].trim();
+          if (!name) return;
+          if (/район/i.test(name) && name.length<40) return;
+          if (name.split(' ').length>7) return;
+          out.push({ 'Регион': regionLabel, 'Район': district, 'Населённый пункт': name });
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function toCSV(rows) {
+  const header = ['Регион','Район','Населённый пункт'];
+  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+  const lines = [header.map(esc).join(',')];
+  for (const r of rows) {
+    lines.push([r['Регион'], r['Район'], r['Населённый пункт']].map(esc).join(','));
+  }
+  return lines.join('\\r\\n');
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function run() {
+  log('Старт…');
+  const all = [];
+  for (const p of PAGES) {
+    try {
+      log(`Загрузка: ${p.region} …`);
+      const doc = await fetchHTML(p.title);
+      log(`Ок: получен HTML для «${p.region}»`, 'ok');
+      const rows = extractFromDoc(doc, p.region);
+      const count = rows.length;
+      log(`Найдено строк: ${count} (${p.region})`, count>0 ? 'ok' : 'warn');
+      all.push(...rows);
+    } catch (e) {
+      log(`Ошибка для «${p.region}»: ${e.message}`, 'err');
+    }
+  }
+  // Deduplicate
+  const key = r => [r['Регион'], r['Район'], r['Населённый пункт']].join('||');
+  const uniq = [];
+  const seen = new Set();
+  for (const r of all) {
+    const k = key(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    uniq.push(r);
+  }
+  log(`Всего строк (после дедупликации): ${uniq.length}`, 'ok');
+
+  if (!uniq.length) {
+    log('Данных не найдено. Возможно, формат страниц изменился или доступ к REST API ограничен. Попробуйте позже или свяжитесь с автором.', 'err');
+    return;
+  }
+  const csv = toCSV(uniq);
+  const ts = new Date().toISOString().slice(0,10);
+  const fname = `krasnodar_adygea_nasel_punkty_${ts}.csv`;
+  downloadText(fname, csv);
+  log(`Готово. Файл скачан: ${fname}`, 'ok');
+}
+
+document.getElementById('runBtn').addEventListener('click', run);
+</script>
+</body>
+</html>
