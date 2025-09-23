@@ -1,335 +1,302 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Регион → Район → Поселение · Краснодарский край + Адыгея → XLSX/CSV/JSON/SQL</title>
+<title>Краснодарский край + Адыгея · Район → городское/сельское поселение (ОКТМО)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{--bg:#0b1220;--fg:#e8eefc;--mut:#a8bfe9;--card:#0f1a30;--line:#203357;--acc:#63b2ff}
   *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
   .wrap{max-width:1200px;margin:24px auto;padding:18px}
-  header{background:linear-gradient(180deg,#0c1629,#0a1120);border:1px solid var(--line);border-radius:16px;padding:18px 16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
-  h1{margin:0 0 6px;font-size:20px;font-weight:800} p.lead{margin:0;color:var(--mut);line-height:1.55}
-  .controls{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 0}
+  header{background:linear-gradient(180deg,#0c1629,#0a1120);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  h1{margin:0 0 6px;font-size:20px;font-weight:800}
+  p.lead{margin:0;color:var(--mut);line-height:1.55}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
   .btn{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#11234a;color:#e9f1ff;font-weight:700;cursor:pointer}
   .btn:hover{filter:brightness(1.08)} .btn[disabled]{opacity:.6;cursor:not-allowed}
+  .chip{background:#0e1b34;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:inline-flex;align-items:center;gap:8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
   .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
   @media(min-width:1000px){.grid{grid-template-columns:1.25fr .75fr}}
   .search input{width:100%;padding:10px 12px;background:#0f1c36;border:1px solid var(--line);border-radius:10px;color:var(--fg)}
   table{width:100%;border-collapse:separate;border-spacing:0;background:#0f1b34;border:1px solid var(--line);border-radius:12px;overflow:hidden}
   thead th{position:sticky;top:0;background:#0e1a31;border-bottom:1px solid var(--line);text-align:left;padding:10px;font-size:13px}
-  tbody td{padding:10px;border-bottom:1px solid #142447;font-size:13px} tbody tr:hover{background:#0e1a31}
-  .mut{color:var(--mut)} .status{font:12.5px ui-monospace,Menlo,Consolas,monospace;background:#0d172c;border:1px dashed var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;max-height:260px;overflow:auto}
-  .chip{background:#0e1b34;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:inline-flex;align-items:center;gap:8px;margin-right:8px}
+  tbody td{padding:10px;border-bottom:1px solid #142447;font-size:13px}
+  tbody tr:hover{background:#0e1a31}
+  .mut{color:var(--mut)}
+  .status{font:12.5px ui-monospace,Menlo,Consolas,monospace;background:#0d172c;border:1px dashed var(--line);
+          border-radius:10px;padding:12px;white-space:pre-wrap;max-height:280px;overflow:auto}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Привязка: Регион → Район → Поселение (городское/сельское)</h1>
-    <p class="lead">Автосбор по всем районам Краснодарского края и Республики Адыгея. Выгрузки: <b>XLSX</b>, <b>CSV</b>, <b>JSON</b>, <b>SQL</b>.<br>
-    Формат строки: <b>Регион, Район, Тип, Поселение, Адм. центр</b>.</p>
+    <h1>Привязка по ОКТМО: Регион → Муниципальный район → (городское|сельское) поселение</h1>
+    <p class="lead">
+      Источник — классификатор ОКТМО (Росстат). Автоматически строит таблицу для
+      <b>Краснодарского края</b> и <b>Республики Адыгея</b>.<br>
+      Выгрузки: <b>XLSX</b>, <b>CSV</b>, <b>JSON</b>. Работает локально в браузере.
+    </p>
     <div class="controls">
-      <button id="btnRun" class="btn">Собрать данные</button>
+      <button id="btnLoad" class="btn">Загрузить с classifikators.ru</button>
+      <input id="file" type="file" accept=".csv" style="display:none">
+      <button id="btnFile" class="btn" title="Если интернет не даёт скачать — выберите локальный файл oktmo.csv">Загрузить файл ОКТМО</button>
+      <label class="chip"><input id="onlyKR" type="checkbox" checked> Краснодарский край</label>
+      <label class="chip"><input id="onlyAD" type="checkbox" checked> Республика Адыгея</label>
+      <label class="chip" title="Добавить городские округа как отдельные строки (без района)">
+        <input id="withGO" type="checkbox"> Включить городские округа
+      </label>
       <button id="btnXLSX" class="btn" disabled>Скачать XLSX</button>
       <button id="btnCSV"  class="btn" disabled>Скачать CSV</button>
       <button id="btnJSON" class="btn" disabled>Скачать JSON</button>
-      <button id="btnSQL"  class="btn" disabled>Скачать SQL</button>
-      <label class="chip"><input id="kk" type="checkbox" checked> Краснодарский край</label>
-      <label class="chip"><input id="ad" type="checkbox" checked> Республика Адыгея</label>
-      <label class="chip" title="Добавить строки по городским округам (как отдельные записи с типом «городской округ»).">
-        <input id="go" type="checkbox"> Включить городские округа
-      </label>
     </div>
   </header>
 
   <div class="grid">
     <section class="card">
-      <div style="margin-bottom:10px"><input id="q" class="search" placeholder="Поиск по региону/району/типу/поселению/центру…" /></div>
+      <div style="margin-bottom:10px" class="search">
+        <input id="q" placeholder="Поиск по региону / району / типу / поселению / центру…">
+      </div>
       <div style="max-height:60vh;overflow:auto;border-radius:12px">
         <table>
-          <thead><tr>
-            <th style="width:210px">Регион</th>
-            <th style="width:260px">Район</th>
-            <th style="width:170px">Тип</th>
-            <th>Поселение</th>
-            <th style="width:240px">Адм. центр</th>
-          </tr></thead>
-          <tbody id="tbody"><tr><td colspan="5" class="mut">Нажмите «Собрать данные»</td></tr></tbody>
+          <thead>
+            <tr>
+              <th style="width:210px">Регион</th>
+              <th style="width:260px">Район</th>
+              <th style="width:170px">Тип</th>
+              <th>Поселение</th>
+              <th style="width:230px">Адм. центр</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="5" class="mut">Нажмите «Загрузить с classifikators.ru» или выберите файл</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
     <aside class="card">
       <div class="status" id="log">Готов.\n</div>
+      <p class="mut" style="margin-top:8px;font-size:12px">
+        Источник CSV: раздел «Скачать ОКТМО» (строка <code>oktmo.csv</code>) на classifikators.ru — это зеркало открытых данных Росстата, формат описан на той же странице (поля <code>TER;KOD1;KOD2;KOD3;KC;RAZDEL;NAME1;Centrum;…</code>).<br>
+        Если прямой скачивание блокируется прокси — загрузите файл вручную.
+      </p>
     </aside>
   </div>
 </div>
 
 <script>
-/* ======================= БАЗА ======================= */
-const WIKI_HTML = (title) => `https://ru.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
+const SRC_URL = 'https://classifikators.ru/assets/downloads/oktmo/oktmo.csv'; // CSV со страницы «Скачать ОКТМО»
 const el = {
-  btnRun:  document.getElementById('btnRun'),
+  btnLoad: document.getElementById('btnLoad'),
+  btnFile: document.getElementById('btnFile'),
+  file:    document.getElementById('file'),
+  onlyKR:  document.getElementById('onlyKR'),
+  onlyAD:  document.getElementById('onlyAD'),
+  withGO:  document.getElementById('withGO'),
   btnXLSX: document.getElementById('btnXLSX'),
   btnCSV:  document.getElementById('btnCSV'),
   btnJSON: document.getElementById('btnJSON'),
-  btnSQL:  document.getElementById('btnSQL'),
-  kk:      document.getElementById('kk'),
-  ad:      document.getElementById('ad'),
-  go:      document.getElementById('go'),
   q:       document.getElementById('q'),
   tbody:   document.getElementById('tbody'),
   log:     document.getElementById('log'),
 };
-function log(s){ el.log.textContent += s + '\n'; el.log.scrollTop = el.log.scrollHeight; }
-function clean(s){ return (s||'').replace(/\[\d+\]/g,'').replace(/[\u200b\u00A0]/g,' ').replace(/\s+/g,' ').trim(); }
-function today(){ return new Date().toISOString().slice(0,10); }
+function log(s){ el.log.textContent += s + '\\n'; el.log.scrollTop = el.log.scrollHeight; }
+function clean(s){ return (s||'').replace(/\\s+/g,' ').replace(/[\\u200b\\u00A0]/g,' ').trim(); }
 
-/* ========= ФОЛБЭК-СПИСОК СТРАНИЦ РАЙОНОВ (на случай авто-поиска в 0) ========= */
-const DISTRICT_PAGES_KK = [
- 'Апшеронский район','Белоглинский район','Белореченский район','Выселковский район','Гулькевичский район',
- 'Динской район','Ейский район','Кавказский район','Каневской район','Кореновский район',
- 'Красноармейский район (Краснодарский край)','Крыловский район','Крымский район','Курганинский район',
- 'Лабинский район','Мостовский район','Новокубанский район','Новопокровский район','Приморско-Ахтарский район',
- 'Северский район','Славянский район','Староминский район','Тбилисский район','Темрюкский район',
- 'Тимашёвский район','Тихорецкий район','Туапсинский район','Успенский район','Усть-Лабинский район','Щербиновский район'
-];
-const GO_PAGES_KK = ['Краснодар','Сочи','Новороссийск','Армавир','Анапа','Геленджик','Горячий Ключ'];
+let rowsRaw = []; // строки оригинального CSV
+let output = [];  // готовая таблица для выгрузки
 
-const DISTRICT_PAGES_AD = [
- 'Гиагинский район','Кошехабльский район','Красногвардейский район (Адыгея)','Майкопский район',
- 'Теучежский район','Тахтамукайский район','Шовгеновский район'
-];
-const GO_PAGES_AD = ['Майкоп','Адыгейск'];
-
-/* =========== ДИСКОВЕРИ: попытка найти ссылки на районы автоматически =========== */
-async function fetchDoc(title){
-  const r = await fetch(WIKI_HTML(title), { headers:{accept:'text/html'} });
-  if(!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText} — ${title}`);
-  const html = await r.text();
-  return new DOMParser().parseFromString(html,'text/html');
-}
-function findLinksToDistricts(doc){
-  // Берём ВСЕ ссылки с атрибутом title, где есть слово «район» и нет «(значения)»
-  const links = [];
-  doc.querySelectorAll('a[title]').forEach(a=>{
-    const t = a.getAttribute('title')||'';
-    if(/\(значения\)/i.test(t)) return;
-    if(/\bрайон\b/i.test(t)) links.push(t);
-  });
-  // uniq + сортировка
-  const seen=new Set(), out=[];
-  for(const t of links){ const k=t.toLowerCase(); if(seen.has(k)) continue; seen.add(k); out.push(t); }
-  out.sort((a,b)=>a.localeCompare(b,'ru'));
-  return out;
+// Парсим CSV в память (разделитель — точка с запятой, кавычки)
+function parseCSV(csvText){
+  const parsed = Papa.parse(csvText, {delimiter:';', header:true, skipEmptyLines:true});
+  if(parsed.errors && parsed.errors.length){
+    throw new Error('Ошибка CSV: ' + parsed.errors[0].message);
+  }
+  return parsed.data;
 }
 
-/* ========= ПАРСЕР ПОСЕЛЕНИЙ НА СТРАНИЦЕ КОНКРЕТНОГО РАЙОНА ========= */
-function parseSettlementCell(text){
-  const s = clean(text);
-  let m = s.match(/^(.+?)\s+(городское|сельское)\s+поселение\b/i);
-  if(m) return { type: m[2].toLowerCase()+' поселение', name: clean(m[1]) };
-  m = s.match(/^(городское|сельское)\s+поселение\s+(.+)$/i);
-  if(m) return { type: m[1].toLowerCase()+' поселение', name: clean(m[2]) };
-  m = s.match(/^поселение\s+(.+?)\s*\((городское|сельское)\)/i);
-  if(m) return { type: m[2].toLowerCase()+' поселение', name: clean(m[1]) };
-  return { type:'', name:'' };
-}
-function parseCenterCell(text){
-  const s = clean(text);
-  const m = s.match(/^(город|станица|село|аул|пгт|пос(е|ё)лок)\s+(.+)$/i);
-  return clean(m ? m[3] : s);
-}
-function looksSettlementRow(cells){
-  const joined = cells.join(' ');
-  return /(городское|сельское)\s+поселение/i.test(joined);
-}
-function extractSettlementsFromDistrictDoc(doc){
-  const out=[];
-  const blocks = [...doc.querySelectorAll('table,ul,ol')];
+// Вычисляем таблицу «Регион, Район, Тип, Поселение, Адм. центр»
+function buildTableFromOKTMO(data){
+  // Ожидаемые поля: TER,KOD1,KOD2,KOD3,KC,RAZDEL,NAME1,Centrum,NomDescr,NomAkt,Status,DateUtv,DateVved
+  const byKey1 = new Map(); // ключ уровня субъекта: TER->RegionName (из записи RAZDEL=1,KOD1=000,KOD2=000)
+  const districts = new Map(); // key: TER+KOD1 -> {name,type} (муниципальный район/городской округ)
+  const settlementsMO = new Map(); // key: TER+KOD1+KOD2 -> {name,type,center}
+  const GOset = new Set(); // тер+код1 для городских округов (для опции включения)
 
-  // 1) Таблицы с упоминанием «поселение» в заголовках или строках
-  blocks.filter(b=>b.tagName==='TABLE').forEach(tbl=>{
-    const rows=[...tbl.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>clean(td.textContent||'')));
-    if(!rows.length) return;
-    const header = rows[0].join(' ').toLowerCase();
-    const headerHasKeys = /поселени|муниципальн|состав|образован/i.test(header);
-    rows.forEach((cells,idx)=>{
-      if(idx===0 && !headerHasKeys) return;        // если шапка не похожа — всё равно рассмотрим строки с «поселение»
-      if(!cells.length) return;
-      if(!headerHasKeys && !looksSettlementRow(cells)) return;
-      let type='', name='', center='';
-      // пробуем по всем ячейкам
-      for(const c of cells){
-        const r = parseSettlementCell(c);
-        if(r.name){ type=r.type; name=r.name; break; }
-      }
-      if(!name) return;
-      // центр — ищем во второй/последующих
-      if(cells[1]) center = parseCenterCell(cells[1]);
-      out.push({type,name,center});
-    });
-  });
+  // Пройдём Раздел 1 — муниципальные образования
+  for(const r of data){
+    const TER = (r.TER||'').padStart(2,'0');
+    const K1  = (r.KOD1||'').padStart(3,'0');
+    const K2  = (r.KOD2||'').padStart(3,'0');
+    const RZ  = String(r.RAZDEL||'');
+    const name= clean(r.NAME1||'');
+    const center = clean(r.Centrum||'');
 
-  // 2) Списки UL/OL: элементы, где есть «поселение»
-  blocks.filter(b=>b.tagName==='UL'||b.tagName==='OL').forEach(list=>{
-    list.querySelectorAll(':scope > li').forEach(li=>{
-      const s = clean(li.textContent||'');
-      if(!/(городское|сельское)\s+поселение/i.test(s)) return;
-      const r = parseSettlementCell(s);
-      if(!r.name) return;
-      out.push({type:r.type,name:r.name,center:''});
-    });
-  });
+    if(RZ!=='1') continue;
 
-  // uniq
+    if(K1==='000' && K2==='000'){
+      // строка субъекта РФ
+      byKey1.set(TER, name);
+      continue;
+    }
+
+    // Муниципальный район (верхний уровень для поселений)
+    const keyDistrict = TER+K1;
+    const lower = name.toLowerCase();
+    const isDistrict = /муниципальный район/.test(lower);
+    const isGO = /городской округ/.test(lower) && !/внутриг/.test(lower);
+
+    if(isDistrict){
+      districts.set(keyDistrict, {name: name.replace(/Муниципальный район\\s*/i,'').trim(), type:'муниципальный район'});
+    }else if(isGO){
+      districts.set(keyDistrict, {name: name.replace(/Городской округ\\s*/i,'').trim(), type:'городской округ'});
+      GOset.add(keyDistrict);
+    }else if(/сельское поселение|городское поселение/.test(lower)){
+      // это МО второго уровня (само поселение — сюда придём ещё раз для вывода)
+      const type = /сельское поселение/i.test(lower) ? 'сельское поселение' : 'городское поселение';
+      const nice = name.replace(/\\s*(городское|сельское)\\s*поселение/i,'').trim();
+      settlementsMO.set(TER+K1+K2, {name:nice, type, center:center||''});
+    }
+  }
+
+  // Фильтруем регионы — найдём коды именно для КК и Адыгеи по названию субъекта
+  const codesWanted = new Set();
+  for(const [ter, regionName] of byKey1.entries()){
+    const nm = regionName.toLowerCase();
+    if(el.onlyKR.checked && /краснодарский край/.test(nm)) codesWanted.add(ter);
+    if(el.onlyAD.checked && /республика адыгея/.test(nm))   codesWanted.add(ter);
+  }
+
+  // Строим итог: берём все МО второго уровня (поселения) только из нужных регионов
+  const out = [];
+  for(const [key, mo] of settlementsMO.entries()){
+    const TER = key.slice(0,2), K1 = key.slice(2,5);
+    if(!codesWanted.has(TER)) continue;
+
+    const region = byKey1.get(TER) || '';
+    const d = districts.get(TER+K1) || {name:'', type:''};
+    // Район показываем только если родитель — муниципальный район
+    const districtName = d.type==='муниципальный район' ? d.name : '';
+    out.push({ region, district: districtName, type: mo.type, name: mo.name, center: mo.center });
+  }
+
+  // Опция: добавить городские округа отдельными строками (без «поселения»)
+  if(el.withGO.checked){
+    for(const key of GOset){
+      const TER = key.slice(0,2);
+      if(!codesWanted.has(TER)) continue;
+      const region = byKey1.get(TER) || '';
+      const d = districts.get(key);
+      out.push({ region, district:'', type:'городской округ', name:d?.name||'', center:d?.name||'' });
+    }
+  }
+
+  // Уникализируем и отсортируем
   const seen=new Set(), fin=[];
   for(const r of out){
-    const k = (r.type+'|'+r.name).toLowerCase();
+    const k=[r.region,r.district,r.type,r.name,r.center].map(x=>String(x||'').toLowerCase()).join('|');
     if(seen.has(k)) continue; seen.add(k); fin.push(r);
   }
-  return fin;
-}
-
-/* ========= СБОР ДАННЫХ ПО РЕГИОНУ ========= */
-async function collectRegion(regionName, discoverTitle, fallbackList, goList){
-  log(`=== ${regionName}: пытаюсь найти районы на «${discoverTitle}»…`);
-  let pages=[];
-  try{
-    const doc = await fetchDoc(discoverTitle);
-    pages = findLinksToDistricts(doc);
-    log(`Найдено по ссылкам: ${pages.length}`);
-  }catch(e){ log(`Не получилось авто-найти: ${e.message}`); }
-
-  if(!pages.length){
-    pages = [...fallbackList];
-    log(`Использую фолбэк-список: ${pages.length} страниц районов`);
-  }
-
-  const out=[];
-  for(const title of pages){
-    const districtName = clean(title).replace(/\s*\(.*?\)\s*$/,'');
-    log(`→ ${districtName}: загрузка…`);
-    try{
-      const doc = await fetchDoc(title);
-      const rows = extractSettlementsFromDistrictDoc(doc);
-      if(!rows.length){
-        log(`   ⚠ поселения не распознаны (вёрстка иная). Пропуск.`);
-        continue;
-      }
-      rows.forEach(r=>out.push({
-        region:regionName, district:districtName, type:r.type, name:r.name, center:r.center
-      }));
-      log(`   + ${rows.length} поселений`);
-    }catch(err){
-      log(`   Ошибка: ${err.message}`);
-    }
-  }
-
-  if(el.go.checked){
-    // ГО как отдельные строки
-    for(const city of goList){
-      out.push({region:regionName, district:'', type:'городской округ', name:city, center:city});
-    }
-  }
-  return out;
-}
-
-/* ========= РЕНДЕР И ЭКСПОРТ ========= */
-let ALL=[];
-function renderTable(){
-  const q = clean(el.q.value||'').toLowerCase();
-  const tb = el.tbody; tb.innerHTML='';
-  let rows = ALL;
-  if(q){
-    rows = rows.filter(r =>
-      (r.region||'').toLowerCase().includes(q) ||
-      (r.district||'').toLowerCase().includes(q) ||
-      (r.type||'').toLowerCase().includes(q) ||
-      (r.name||'').toLowerCase().includes(q) ||
-      (r.center||'').toLowerCase().includes(q)
-    );
-  }
-  if(!rows.length){
-    tb.innerHTML = `<tr><td colspan="5" class="mut">Ничего не найдено</td></tr>`;
-    return;
-  }
-  rows.sort((a,b)=>
+  fin.sort((a,b)=>
     (a.region||'').localeCompare(b.region||'','ru') ||
     (a.district||'').localeCompare(b.district||'','ru') ||
     (a.type||'').localeCompare(b.type||'','ru') ||
     (a.name||'').localeCompare(b.name||'','ru')
   );
-  for(const r of rows){
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${r.region}</td><td>${r.district||''}</td><td>${r.type}</td><td>${r.name}</td><td>${r.center||''}</td>`;
+  return fin;
+}
+
+// Рендер таблицы + фильтр
+function render(){
+  const q = clean(el.q.value||'').toLowerCase();
+  const tb = el.tbody; tb.innerHTML='';
+  let r = output;
+  if(q){
+    r = r.filter(x =>
+      (x.region||'').toLowerCase().includes(q) ||
+      (x.district||'').toLowerCase().includes(q) ||
+      (x.type||'').toLowerCase().includes(q) ||
+      (x.name||'').toLowerCase().includes(q) ||
+      (x.center||'').toLowerCase().includes(q)
+    );
+  }
+  if(!r.length){
+    tb.innerHTML = '<tr><td colspan="5" class="mut">Ничего не найдено</td></tr>';
+    return;
+  }
+  for(const x of r){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${x.region}</td><td>${x.district||''}</td><td>${x.type}</td><td>${x.name}</td><td>${x.center||''}</td>`;
     tb.appendChild(tr);
   }
 }
-function uniqRows(rows){
-  const seen=new Set(), out=[];
-  for(const r of rows){
-    const k=[r.region,r.district||'',r.type,r.name,r.center||''].map(x=>String(x||'').toLowerCase()).join('|');
-    if(seen.has(k)) continue; seen.add(k); out.push(r);
-  }
-  return out;
-}
+
+// Экспорт
 function toCSV(rows){
   const header=['Регион','Район','Тип','Поселение','Адм. центр'];
   const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  return [header.map(esc).join(','), ...rows.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''].map(esc).join(','))].join('\r\n');
+  return [header.map(esc).join(','), ...rows.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''].map(esc).join(','))].join('\\r\\n');
 }
-function toSQL(rows){
-  const vals = rows.map(r=>`('${escapeSQL(r.region)}','${escapeSQL(r.district||'')}','${escapeSQL(r.type)}','${escapeSQL(r.name)}','${escapeSQL(r.center||'')}')`).join(',\n');
-  return `CREATE TABLE settlements (\n  region TEXT,\n  district TEXT,\n  type TEXT,\n  settlement TEXT,\n  admin_center TEXT\n);\n\nINSERT INTO settlements (region,district,type,settlement,admin_center)\nVALUES\n${vals};\n`;
-}
-function escapeSQL(s){ return String(s??'').replace(/'/g,"''"); }
-function saveBlob(name, blob){ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-function saveCSV(){ const csv=toCSV(ALL); saveBlob(`kk_adygea_rayon_poselenie_${today()}.csv`, new Blob([csv],{type:'text/csv;charset=utf-8;'})); }
-function saveJSON(){ saveBlob(`kk_adygea_rayon_poselenie_${today()}.json`, new Blob([JSON.stringify(ALL,null,2)],{type:'application/json'})); }
-function saveSQL(){ saveBlob(`kk_adygea_rayon_poselenie_${today()}.sql`, new Blob([toSQL(ALL)],{type:'text/sql'})); }
+function save(name, blob){ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function saveCSV(){ save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.csv`, new Blob([toCSV(output)],{type:'text/csv;charset=utf-8;'})); }
+function saveJSON(){ save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.json`, new Blob([JSON.stringify(output,null,2)],{type:'application/json'})); }
 function saveXLSX(){
-  const data = [['Регион','Район','Тип','Поселение','Адм. центр'], ...ALL.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''])];
-  const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols']=[{wch:20},{wch:28},{wch:20},{wch:36},{wch:28}];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Поселения');
-  const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  saveBlob(`kk_adygea_rayon_poselenie_${today()}.xlsx`, new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const data=[['Регион','Район','Тип','Поселение','Адм. центр'], ...output.map(r=>[r.region,r.district||'',r.type,r.name,r.center||''])];
+  const ws=XLSX.utils.aoa_to_sheet(data); ws['!cols']=[{wch:22},{wch:28},{wch:22},{wch:36},{wch:28}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Поселения');
+  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  save(`kk_adygea_poseleniya_${new Date().toISOString().slice(0,10)}.xlsx`, new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
 }
 
-/* ========= ОСНОВНОЙ СЦЕНАРИЙ ========= */
-async function run(){
-  el.btnRun.disabled = true; el.btnXLSX.disabled = el.btnCSV.disabled = el.btnJSON.disabled = el.btnSQL.disabled = true;
-  el.tbody.innerHTML = `<tr><td colspan="5" class="mut">Сбор данных…</td></tr>`;
-  ALL = []; log('Старт сбора…');
-
-  const jobs=[];
-  if(el.kk.checked) jobs.push(collectRegion('Краснодарский край','Административно-территориальное деление Краснодарского края',DISTRICT_PAGES_KK,GO_PAGES_KK));
-  if(el.ad.checked) jobs.push(collectRegion('Республика Адыгея','Административно-территориальное деление Адыгеи',DISTRICT_PAGES_AD,GO_PAGES_AD));
-
+// Загрузка
+async function loadFromURL(){
+  el.btnLoad.disabled = true;
   try{
-    const parts = await Promise.all(jobs);
-    ALL = uniqRows(parts.flat());
-    log(`Итог: ${ALL.length} строк.`);
-    renderTable();
-    el.btnXLSX.disabled = el.btnCSV.disabled = el.btnJSON.disabled = el.btnSQL.disabled = false;
+    log('Скачиваю oktmo.csv с classifikators.ru…');
+    const r = await fetch(SRC_URL, {cache:'no-store'});
+    if(!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+    const text = await r.text();
+    rowsRaw = parseCSV(text);
+    log(`Файл прочитан: ${rowsRaw.length} строк.`);
+    output = buildTableFromOKTMO(rowsRaw);
+    log(`Собрано: ${output.length} поселений.`);
+    render();
+    el.btnXLSX.disabled = el.btnCSV.disabled = el.btnJSON.disabled = false;
   }catch(e){
-    log('Ошибка общего сбора: '+e.message);
-    el.tbody.innerHTML = `<tr><td colspan="5" class="mut">Ошибка: ${e.message}</td></tr>`;
+    log('Ошибка загрузки: '+e.message+' — воспользуйтесь «Загрузить файл ОКТМО».');
   }finally{
-    el.btnRun.disabled = false;
+    el.btnLoad.disabled = false;
   }
 }
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      rowsRaw = parseCSV(String(ev.target.result||''));
+      log(`Файл прочитан: ${rowsRaw.length} строк.`);
+      output = buildTableFromOKTMO(rowsRaw);
+      log(`Собрано: ${output.length} поселений.`);
+      render();
+      el.btnXLSX.disabled = el.btnCSV.disabled = el.btnJSON.disabled = false;
+    }catch(e){ log('Ошибка CSV: '+e.message); }
+  };
+  reader.readAsText(file, 'utf-8');
+}
 
-/* ========= Слушатели ========= */
-el.btnRun.addEventListener('click', run);
-el.btnXLSX.addEventListener('click', saveXLSX);
+// Слушатели
+el.btnLoad.addEventListener('click', loadFromURL);
+el.btnFile.addEventListener('click', ()=> el.file.click());
+el.file.addEventListener('change', e=> e.target.files[0] && handleFile(e.target.files[0]));
+el.q.addEventListener('input', render);
+el.onlyKR.addEventListener('change', ()=>{ output = buildTableFromOKTMO(rowsRaw); render(); });
+el.onlyAD.addEventListener('change', ()=>{ output = buildTableFromOKTMO(rowsRaw); render(); });
+el.withGO.addEventListener('change', ()=>{ output = buildTableFromOKTMO(rowsRaw); render(); });
 el.btnCSV.addEventListener('click', saveCSV);
 el.btnJSON.addEventListener('click', saveJSON);
-el.btnSQL.addEventListener('click', saveSQL);
-el.q.addEventListener('input', renderTable);
+el.btnXLSX.addEventListener('click', saveXLSX);
 </script>
 </body>
 </html>
