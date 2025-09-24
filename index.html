@@ -34,25 +34,25 @@
             margin-bottom: 2rem;
         }
 
+        .info-section {
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-text {
+            color: #075985;
+            font-size: 0.875rem;
+        }
+
         .upload-section {
             background: white;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 24px;
             margin-bottom: 32px;
-        }
-
-        .upload-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-top: 16px;
-        }
-
-        @media (max-width: 768px) {
-            .upload-grid {
-                grid-template-columns: 1fr;
-            }
         }
 
         .upload-box {
@@ -64,6 +64,8 @@
             transition: all 0.2s;
             position: relative;
             background: white;
+            max-width: 600px;
+            margin: 16px auto 0;
         }
 
         .upload-box:hover {
@@ -117,6 +119,29 @@
             margin-top: 16px;
         }
 
+        .privyazka-status {
+            text-align: center;
+            padding: 12px;
+            margin: 16px 0;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .privyazka-loaded {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .privyazka-loading {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .privyazka-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         .filial-card {
             background: white;
             border-radius: 8px;
@@ -130,6 +155,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 12px;
         }
 
         .filial-title {
@@ -200,6 +227,7 @@
             font-weight: 500;
             color: #374151;
             border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
         }
 
         td {
@@ -226,43 +254,38 @@
             color: #374151;
             margin-bottom: 16px;
         }
+
+        .no-privyazka-filial {
+            background: #fef3c7;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Анализатор заявок для участия в торгах</h1>
 
-        <div class="upload-section">
-            <h2 class="section-title">Загрузка файлов</h2>
-            
-            <div class="upload-grid">
-                <div>
-                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">
-                        Файл привязки (Privyazka)
-                    </label>
-                    <div class="upload-box">
-                        <input type="file" id="privyazkaInput" accept=".xlsx,.xls,.xlsm,.csv">
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p class="upload-text" id="privyazkaText">Выберите файл привязки</p>
-                        <p class="file-format-hint">Поддерживаются форматы: Excel (.xlsx, .xls), CSV</p>
-                    </div>
-                </div>
+        <div class="info-section">
+            <p class="info-text">
+                <strong>Как работает система:</strong> Загрузите файлы с заявками из папки Яндекс.Диска. 
+                Система автоматически отфильтрует заявки по группам "Наружное освещение" и "Строительно-монтажные работы", 
+                а затем распределит их по филиалам на основе упоминания городов.
+            </p>
+        </div>
 
-                <div>
-                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">
-                        Файлы с заявками (можно выбрать несколько)
-                    </label>
-                    <div class="upload-box">
-                        <input type="file" id="tenderInput" accept=".xlsx,.xls,.xlsm,.csv" multiple>
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <p class="upload-text" id="tenderText">Выберите файлы с заявками</p>
-                        <p class="file-format-hint">Поддерживаются форматы: Excel (.xlsx, .xls), CSV</p>
-                    </div>
-                </div>
+        <div id="privyazkaStatus" class="privyazka-status privyazka-loading">
+            Загрузка файла привязки из репозитория...
+        </div>
+
+        <div class="upload-section">
+            <h2 class="section-title">Загрузка файлов с заявками</h2>
+            
+            <div class="upload-box">
+                <input type="file" id="tenderInput" accept=".xlsx,.xls,.xlsm,.csv" multiple>
+                <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="upload-text" id="tenderText">Выберите файлы с заявками из Яндекс.Диска</p>
+                <p class="file-format-hint">Поддерживаются форматы: Excel (.xlsx, .xls), CSV</p>
             </div>
 
             <div id="errorMessage" class="error-message hidden"></div>
@@ -347,23 +370,10 @@
                         
                         const sheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[sheetName];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                            header: 1,
-                            defval: '',
-                            raw: false
-                        });
                         
-                        // Преобразуем в объекты с заголовками
-                        const headers = jsonData[0] || [];
-                        const rows = jsonData.slice(1).map(row => {
-                            const obj = {};
-                            headers.forEach((header, index) => {
-                                obj[header] = row[index] || '';
-                            });
-                            return obj;
-                        });
-                        
-                        const normalizedData = normalizeHeaders(rows);
+                        // Получаем данные с заголовками
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                        const normalizedData = normalizeHeaders(jsonData);
                         resolve(normalizedData);
                     } catch (error) {
                         reject(error);
@@ -409,29 +419,59 @@
             }
         }
 
-        // Обработка загрузки файла привязки
-        document.getElementById('privyazkaInput').addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (file) {
+        // Обновление статуса файла привязки
+        function updatePrivyazkaStatus(status, message) {
+            const statusDiv = document.getElementById('privyazkaStatus');
+            statusDiv.className = 'privyazka-status';
+            
+            switch(status) {
+                case 'loading':
+                    statusDiv.classList.add('privyazka-loading');
+                    break;
+                case 'loaded':
+                    statusDiv.classList.add('privyazka-loaded');
+                    break;
+                case 'error':
+                    statusDiv.classList.add('privyazka-error');
+                    break;
+            }
+            
+            statusDiv.textContent = message;
+        }
+
+        // Функция загрузки файла привязки из GitHub
+        async function loadPrivyazkaFromGitHub() {
+            const githubUrls = [
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/main/Privyazka.xlsx',
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/main/Privyazka.xls',
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/main/Privyazka.csv',
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/master/Privyazka.xlsx',
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/master/Privyazka.xls',
+                'https://raw.githubusercontent.com/Anatoliy031/KK-Adigeya/master/Privyazka.csv'
+            ];
+            
+            updatePrivyazkaStatus('loading', 'Загрузка файла привязки из репозитория...');
+            
+            for (const url of githubUrls) {
                 try {
-                    setLoading(true);
-                    hideError();
-                    privyazkaData = await readFile(file);
-                    document.getElementById('privyazkaText').innerHTML = 
-                        `<span class="upload-success">Загружено: ${privyazkaData.length} записей (${file.name})</span>`;
-                    
-                    // Если есть данные о заявках, перефильтровать
-                    if (tenderData.length > 0) {
-                        filterTenders();
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const fileName = url.split('/').pop();
+                        const file = new File([blob], fileName, { type: blob.type });
+                        
+                        privyazkaData = await readFile(file);
+                        updatePrivyazkaStatus('loaded', `✓ Файл привязки загружен: ${privyazkaData.length} записей`);
+                        return true;
                     }
                 } catch (err) {
-                    showError('Ошибка при чтении файла привязки: ' + err.message);
-                    console.error('Error details:', err);
-                } finally {
-                    setLoading(false);
+                    console.log(`Попытка загрузки ${url} не удалась:`, err);
                 }
             }
-        });
+            
+            updatePrivyazkaStatus('error', '✗ Не удалось загрузить файл привязки из репозитория');
+            return false;
+        }
 
         // Обработка загрузки файлов с заявками
         document.getElementById('tenderInput').addEventListener('change', async function(e) {
@@ -489,14 +529,17 @@
                 const filial = (location['Filial'] || location['Филиал'] || '').trim();
                 
                 if (city && tenderText.includes(city)) {
-                    return filial;
+                    // Проверяем, что филиал из нашего списка
+                    if (filials.includes(filial)) {
+                        return filial;
+                    }
                 }
             }
             
             return 'Без привязки';
         }
 
-        // Функция фильтрации заявок
+        // Функция фильтрации заявок по группам
         function filterTenders() {
             if (!tenderData.length) return;
 
@@ -506,13 +549,12 @@
             };
 
             tenderData.forEach(tender => {
-                // Ищем столбец с наименованием закупки
-                const purchaseName = (tender['Наименование закупки'] || 
-                                    tender['Название закупки'] || 
-                                    tender['Предмет закупки'] || 
-                                    tender['Наименование'] || '').toLowerCase();
+                // Получаем значение из столбца D "Наименование закупки"
+                // В Excel столбец D это 4-й столбец (индексация с 0 будет 3)
+                // Но так как мы работаем с именованными столбцами, ищем по имени
+                const purchaseName = (tender['Наименование закупки'] || '').toLowerCase();
                 
-                // Группа 1: Наружное освещение
+                // Группа 1: Наружное освещение (поиск по части слова "наруж")
                 if (purchaseName.includes('наруж')) {
                     filtered['Наружное освещение'].push({
                         ...tender,
@@ -521,6 +563,7 @@
                 }
                 
                 // Группа 2: Строительно-монтажные работы
+                // Условия: содержит "КЛ-" или "ВЛ-" или "ТП", но НЕ содержит "отпу" или "БКТП"
                 if ((purchaseName.includes('кл-') || purchaseName.includes('вл-') || purchaseName.includes('тп')) &&
                     !purchaseName.includes('отпу') && !purchaseName.includes('бктп')) {
                     filtered['Строительно-монтажные работы'].push({
@@ -564,7 +607,7 @@
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, filial.substring(0, 31));
-            XLSX.writeFile(wb, `Заявки_${filial}.xlsx`);
+            XLSX.writeFile(wb, `Заявки_${filial}_${new Date().toLocaleDateString('ru-RU')}.xlsx`);
         }
 
         // Функция отображения результатов
@@ -572,7 +615,7 @@
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '';
 
-            filials.forEach(filial => {
+            filials.forEach((filial, index) => {
                 const filialData = filteredData[filial];
                 if (!filialData) return;
 
@@ -581,6 +624,9 @@
 
                 const filialCard = document.createElement('div');
                 filialCard.className = 'filial-card';
+                if (filial === 'Без привязки') {
+                    filialCard.classList.add('no-privyazka-filial');
+                }
                 
                 let html = `
                     <div class="filial-header">
@@ -588,7 +634,7 @@
                             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                             </svg>
-                            ${filial}
+                            ${filial === 'Без привязки' ? '12. ' + filial : `${index + 1}. ${filial}`}
                             <span class="filial-count">(всего заявок: ${totalCount})</span>
                         </h3>
                         <button class="export-btn" onclick="exportToExcel('${filial}')">
@@ -611,9 +657,15 @@
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>№ закупки</th>
-                                            <th>Наименование</th>
+                                            <th>№ извещения</th>
+                                            <th>Наименование закупки</th>
+                                            <th>Тип закупки</th>
+                                            <th>Размещено</th>
+                                            <th>Обновлено</th>
+                                            <th>Окончание подачи заявок</th>
+                                            <th>Объект закупки</th>
                                             <th>Заказчик</th>
+                                            <th>НМЦК</th>
                                             <th>Источник</th>
                                         </tr>
                                     </thead>
@@ -621,17 +673,17 @@
                     `;
 
                     tenders.forEach(tender => {
-                        const purchaseNumber = tender['Номер закупки'] || tender['№ закупки'] || tender['Номер'] || '-';
-                        const purchaseName = tender['Наименование закупки'] || tender['Название закупки'] || 
-                                           tender['Предмет закупки'] || tender['Наименование'] || '-';
-                        const customerName = tender['Наименование заказчика'] || tender['Заказчик'] || 
-                                           tender['Название заказчика'] || '-';
-                        
                         html += `
                             <tr>
-                                <td>${purchaseNumber}</td>
-                                <td>${purchaseName}</td>
-                                <td>${customerName}</td>
+                                <td>${tender['№ извещения'] || '-'}</td>
+                                <td>${tender['Наименование закупки'] || '-'}</td>
+                                <td>${tender['Тип закупки'] || '-'}</td>
+                                <td>${tender['Размещено'] || '-'}</td>
+                                <td>${tender['Обновлено'] || '-'}</td>
+                                <td>${tender['Окончание подачи заявок'] || '-'}</td>
+                                <td>${tender['Объект закупки'] || '-'}</td>
+                                <td>${tender['Заказчик'] || '-'}</td>
+                                <td>${tender['Начальная цена'] || '-'}</td>
                                 <td class="source-file">${tender.sourceFile}</td>
                             </tr>
                         `;
@@ -649,7 +701,23 @@
                 filialCard.innerHTML = html;
                 resultsDiv.appendChild(filialCard);
             });
+
+            // Если нет результатов
+            if (resultsDiv.innerHTML === '') {
+                resultsDiv.innerHTML = `
+                    <div class="filial-card">
+                        <p style="text-align: center; color: #6b7280;">
+                            Не найдено заявок, соответствующих критериям поиска.
+                        </p>
+                    </div>
+                `;
+            }
         }
+
+        // Автоматическая загрузка файла привязки при загрузке страницы
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadPrivyazkaFromGitHub();
+        });
     </script>
 </body>
 </html>
