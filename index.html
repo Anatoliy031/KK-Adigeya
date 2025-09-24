@@ -1,335 +1,655 @@
-import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
-import _ from 'lodash';
-import { Download, Upload, FileText, Search, Building2 } from 'lucide-react';
-
-const App = () => {
-  const [tenderData, setTenderData] = useState([]);
-  const [privyazkaData, setPrivyazkaData] = useState([]);
-  const [filteredData, setFilteredData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const filials = [
-    'Адыгейские ЭС', 'Армавирские ЭС', 'Краснодарские ЭС', 
-    'Лабинские ЭС', 'Ленинградские ЭС', 'Славянские ЭС', 
-    'Сочинские ЭС', 'Тимашевские ЭС', 'Тихорецкие ЭС', 
-    'Усть-Лабинские ЭС', 'Юго-Западные ЭС', 'Без привязки'
-  ];
-
-  // Функция для чтения Excel файлов
-  const readExcelFile = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
-          // Преобразуем в объекты с заголовками
-          const headers = jsonData[0];
-          const rows = jsonData.slice(1).map(row => {
-            const obj = {};
-            headers.forEach((header, index) => {
-              obj[header] = row[index] || '';
-            });
-            return obj;
-          });
-          
-          resolve(rows);
-        } catch (error) {
-          reject(error);
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализатор заявок для торгов</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
-    });
-  };
 
-  // Обработка загрузки файла привязки
-  const handlePrivyazkaUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        setLoading(true);
-        const data = await readExcelFile(file);
-        setPrivyazkaData(data);
-        setError(null);
-      } catch (err) {
-        setError('Ошибка при чтении файла привязки: ' + err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  // Обработка загрузки файлов с заявками
-  const handleTenderFilesUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      try {
-        setLoading(true);
-        let allData = [];
-        
-        for (const file of files) {
-          const data = await readExcelFile(file);
-          // Добавляем имя файла к каждой записи
-          const dataWithFileName = data.map(row => ({
-            ...row,
-            sourceFile: file.name
-          }));
-          allData = [...allData, ...dataWithFileName];
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f9fafb;
+            color: #1f2937;
+            line-height: 1.5;
         }
-        
-        setTenderData(allData);
-        setError(null);
-      } catch (err) {
-        setError('Ошибка при чтении файлов с заявками: ' + err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
 
-  // Функция поиска филиала по тексту заявки
-  const findFilial = (tender) => {
-    if (!privyazkaData.length) return 'Без привязки';
-    
-    const tenderText = Object.values(tender).join(' ').toLowerCase();
-    
-    for (const location of privyazkaData) {
-      const city = location['Gorod'] || location['Город'] || '';
-      const filial = location['Filial'] || location['Филиал'] || '';
-      
-      if (city && tenderText.includes(city.toLowerCase())) {
-        return filial;
-      }
-    }
-    
-    return 'Без привязки';
-  };
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-  // Функция фильтрации заявок
-  const filterTenders = () => {
-    if (!tenderData.length) return;
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 2rem;
+        }
 
-    const filtered = {
-      'Наружное освещение': [],
-      'Строительно-монтажные работы': []
-    };
+        .upload-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 32px;
+        }
 
-    tenderData.forEach(tender => {
-      const purchaseName = tender['Наименование закупки'] || '';
-      const lowerName = purchaseName.toLowerCase();
-      
-      // Группа 1: Наружное освещение
-      if (lowerName.includes('наруж')) {
-        filtered['Наружное освещение'].push({
-          ...tender,
-          filial: findFilial(tender)
-        });
-      }
-      
-      // Группа 2: Строительно-монтажные работы
-      if ((lowerName.includes('кл-') || lowerName.includes('вл-') || lowerName.includes('тп')) &&
-          !lowerName.includes('отпу') && !lowerName.includes('бктп')) {
-        filtered['Строительно-монтажные работы'].push({
-          ...tender,
-          filial: findFilial(tender)
-        });
-      }
-    });
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 16px;
+        }
 
-    // Группируем по филиалам
-    const groupedByFilial = {};
-    filials.forEach(filial => {
-      groupedByFilial[filial] = {
-        'Наружное освещение': filtered['Наружное освещение'].filter(t => t.filial === filial),
-        'Строительно-монтажные работы': filtered['Строительно-монтажные работы'].filter(t => t.filial === filial)
-      };
-    });
+        @media (max-width: 768px) {
+            .upload-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    setFilteredData(groupedByFilial);
-  };
+        .upload-box {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background: white;
+        }
 
-  // Экспорт данных в Excel
-  const exportToExcel = (filial) => {
-    const data = filteredData[filial];
-    if (!data) return;
+        .upload-box:hover {
+            border-color: #9ca3af;
+            background: #f9fafb;
+        }
 
-    const exportData = [];
-    
-    Object.entries(data).forEach(([group, tenders]) => {
-      if (tenders.length > 0) {
-        exportData.push({ 'Группа': group });
-        tenders.forEach(tender => {
-          const { filial, sourceFile, ...tenderData } = tender;
-          exportData.push(tenderData);
-        });
-        exportData.push({}); // Пустая строка между группами
-      }
-    });
+        .upload-box input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, filial.substring(0, 31));
-    XLSX.writeFile(wb, `Заявки_${filial}.xlsx`);
-  };
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            color: #6b7280;
+        }
 
-  // Запуск фильтрации при изменении данных
-  useEffect(() => {
-    if (tenderData.length > 0) {
-      filterTenders();
-    }
-  }, [tenderData, privyazkaData]);
+        .upload-text {
+            color: #4b5563;
+            font-weight: 500;
+        }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">
-          Анализатор заявок для участия в торгах
-        </h1>
+        .upload-success {
+            color: #059669;
+        }
 
-        {/* Панель загрузки файлов */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Загрузка файлов</h2>
-          
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Файл привязки (Privyazka.xlsx)
-              </label>
-              <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-gray-400 focus:outline-none">
-                <span className="flex items-center space-x-2">
-                  <Upload className="w-6 h-6 text-gray-600" />
-                  <span className="font-medium text-gray-600">
-                    {privyazkaData.length > 0 
-                      ? `Загружено: ${privyazkaData.length} записей` 
-                      : 'Выберите файл привязки'}
-                  </span>
-                </span>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept=".xlsx,.xls"
-                  onChange={handlePrivyazkaUpload}
-                />
-              </label>
+        .file-format-hint {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #6b7280;
+            margin-top: 16px;
+        }
+
+        .filial-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .filial-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .filial-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filial-count {
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: #6b7280;
+            margin-left: 12px;
+        }
+
+        .export-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .export-btn:hover {
+            background: #047857;
+        }
+
+        .group-section {
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 16px;
+        }
+
+        .group-title {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        thead {
+            background: #f9fafb;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 16px;
+            font-weight: 500;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        td {
+            padding: 8px 16px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .source-file {
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Анализатор заявок для участия в торгах</h1>
+
+        <div class="upload-section">
+            <h2 class="section-title">Загрузка файлов</h2>
+            
+            <div class="upload-grid">
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                        Файл привязки (Privyazka)
+                    </label>
+                    <div class="upload-box">
+                        <input type="file" id="privyazkaInput" accept=".xlsx,.xls,.xlsm,.csv">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p class="upload-text" id="privyazkaText">Выберите файл привязки</p>
+                        <p class="file-format-hint">Поддерживаются форматы: Excel (.xlsx, .xls), CSV</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">
+                        Файлы с заявками (можно выбрать несколько)
+                    </label>
+                    <div class="upload-box">
+                        <input type="file" id="tenderInput" accept=".xlsx,.xls,.xlsm,.csv" multiple>
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p class="upload-text" id="tenderText">Выберите файлы с заявками</p>
+                        <p class="file-format-hint">Поддерживаются форматы: Excel (.xlsx, .xls), CSV</p>
+                    </div>
+                </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Файлы с заявками (можно выбрать несколько)
-              </label>
-              <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-gray-400 focus:outline-none">
-                <span className="flex items-center space-x-2">
-                  <FileText className="w-6 h-6 text-gray-600" />
-                  <span className="font-medium text-gray-600">
-                    {tenderData.length > 0 
-                      ? `Загружено: ${tenderData.length} заявок` 
-                      : 'Выберите файлы с заявками'}
-                  </span>
-                </span>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept=".xlsx,.xls"
-                  multiple
-                  onChange={handleTenderFilesUpload}
-                />
-              </label>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
-              {error}
-            </div>
-          )}
-
-          {loading && (
-            <div className="mt-4 text-center text-gray-600">
-              Загрузка и обработка файлов...
-            </div>
-          )}
+            <div id="errorMessage" class="error-message hidden"></div>
+            <div id="loadingMessage" class="loading hidden">Загрузка и обработка файлов...</div>
         </div>
 
-        {/* Результаты по филиалам */}
-        {Object.keys(filteredData).length > 0 && (
-          <div className="space-y-6">
-            {filials.map(filial => {
-              const filialData = filteredData[filial];
-              const totalCount = filialData 
-                ? Object.values(filialData).reduce((sum, group) => sum + group.length, 0)
-                : 0;
-
-              if (totalCount === 0) return null;
-
-              return (
-                <div key={filial} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                      <Building2 className="w-5 h-5 mr-2" />
-                      {filial}
-                      <span className="ml-3 text-sm font-normal text-gray-600">
-                        (всего заявок: {totalCount})
-                      </span>
-                    </h3>
-                    <button
-                      onClick={() => exportToExcel(filial)}
-                      className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Экспорт
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {Object.entries(filialData).map(([group, tenders]) => {
-                      if (tenders.length === 0) return null;
-
-                      return (
-                        <div key={group} className="border-l-4 border-blue-500 pl-4">
-                          <h4 className="font-medium text-gray-700 mb-2">
-                            {group} ({tenders.length})
-                          </h4>
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50">
-                                  <th className="px-4 py-2 text-left">№ закупки</th>
-                                  <th className="px-4 py-2 text-left">Наименование</th>
-                                  <th className="px-4 py-2 text-left">Заказчик</th>
-                                  <th className="px-4 py-2 text-left">Источник</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {tenders.map((tender, idx) => (
-                                  <tr key={idx} className="border-b hover:bg-gray-50">
-                                    <td className="px-4 py-2">{tender['Номер закупки'] || '-'}</td>
-                                    <td className="px-4 py-2">{tender['Наименование закупки'] || '-'}</td>
-                                    <td className="px-4 py-2">{tender['Наименование заказчика'] || '-'}</td>
-                                    <td className="px-4 py-2 text-xs text-gray-500">{tender.sourceFile}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <div id="results"></div>
     </div>
-  );
-};
 
-export default App;
+    <script>
+        // Глобальные переменные
+        let privyazkaData = [];
+        let tenderData = [];
+        let filteredData = {};
+
+        const filials = [
+            'Адыгейские ЭС', 'Армавирские ЭС', 'Краснодарские ЭС', 
+            'Лабинские ЭС', 'Ленинградские ЭС', 'Славянские ЭС', 
+            'Сочинские ЭС', 'Тимашевские ЭС', 'Тихорецкие ЭС', 
+            'Усть-Лабинские ЭС', 'Юго-Западные ЭС', 'Без привязки'
+        ];
+
+        // Функция определения типа файла
+        function getFileExtension(filename) {
+            return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        }
+
+        // Функция для нормализации заголовков (убираем лишние пробелы)
+        function normalizeHeaders(data) {
+            return data.map(row => {
+                const normalizedRow = {};
+                Object.keys(row).forEach(key => {
+                    const normalizedKey = key.trim();
+                    normalizedRow[normalizedKey] = row[key];
+                });
+                return normalizedRow;
+            });
+        }
+
+        // Функция чтения CSV файла
+        function readCSVFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const csvData = e.target.result;
+                        const results = Papa.parse(csvData, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true,
+                            delimitersToGuess: [',', ';', '\t', '|']
+                        });
+                        
+                        if (results.errors.length > 0) {
+                            console.warn('CSV parsing warnings:', results.errors);
+                        }
+                        
+                        const normalizedData = normalizeHeaders(results.data);
+                        resolve(normalizedData);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsText(file, 'utf-8');
+            });
+        }
+
+        // Функция чтения Excel файла
+        function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { 
+                            type: 'array',
+                            cellDates: true,
+                            cellStyles: true,
+                            cellNF: true
+                        });
+                        
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                            header: 1,
+                            defval: '',
+                            raw: false
+                        });
+                        
+                        // Преобразуем в объекты с заголовками
+                        const headers = jsonData[0] || [];
+                        const rows = jsonData.slice(1).map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index] || '';
+                            });
+                            return obj;
+                        });
+                        
+                        const normalizedData = normalizeHeaders(rows);
+                        resolve(normalizedData);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Универсальная функция чтения файла
+        function readFile(file) {
+            const extension = getFileExtension(file.name);
+            
+            if (extension === 'csv') {
+                return readCSVFile(file);
+            } else if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension)) {
+                return readExcelFile(file);
+            } else {
+                return Promise.reject(new Error(`Неподдерживаемый формат файла: ${extension}`));
+            }
+        }
+
+        // Показать ошибку
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        // Скрыть ошибку
+        function hideError() {
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
+        // Показать/скрыть загрузку
+        function setLoading(isLoading) {
+            const loadingDiv = document.getElementById('loadingMessage');
+            if (isLoading) {
+                loadingDiv.classList.remove('hidden');
+            } else {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        // Обработка загрузки файла привязки
+        document.getElementById('privyazkaInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    setLoading(true);
+                    hideError();
+                    privyazkaData = await readFile(file);
+                    document.getElementById('privyazkaText').innerHTML = 
+                        `<span class="upload-success">Загружено: ${privyazkaData.length} записей (${file.name})</span>`;
+                    
+                    // Если есть данные о заявках, перефильтровать
+                    if (tenderData.length > 0) {
+                        filterTenders();
+                    }
+                } catch (err) {
+                    showError('Ошибка при чтении файла привязки: ' + err.message);
+                    console.error('Error details:', err);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+
+        // Обработка загрузки файлов с заявками
+        document.getElementById('tenderInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                try {
+                    setLoading(true);
+                    hideError();
+                    let allData = [];
+                    let processedFiles = 0;
+                    let errors = [];
+                    
+                    for (const file of files) {
+                        try {
+                            const data = await readFile(file);
+                            // Добавляем имя файла к каждой записи
+                            const dataWithFileName = data.map(row => ({
+                                ...row,
+                                sourceFile: file.name
+                            }));
+                            allData = [...allData, ...dataWithFileName];
+                            processedFiles++;
+                        } catch (fileError) {
+                            errors.push(`${file.name}: ${fileError.message}`);
+                        }
+                    }
+                    
+                    if (errors.length > 0) {
+                        showError('Некоторые файлы не удалось обработать:\n' + errors.join('\n'));
+                    }
+                    
+                    tenderData = allData;
+                    document.getElementById('tenderText').innerHTML = 
+                        `<span class="upload-success">Загружено: ${tenderData.length} заявок из ${processedFiles} файлов</span>`;
+                    
+                    // Фильтруем данные
+                    filterTenders();
+                } catch (err) {
+                    showError('Ошибка при чтении файлов с заявками: ' + err.message);
+                    console.error('Error details:', err);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+
+        // Функция поиска филиала по тексту заявки
+        function findFilial(tender) {
+            if (!privyazkaData.length) return 'Без привязки';
+            
+            const tenderText = Object.values(tender).join(' ').toLowerCase();
+            
+            for (const location of privyazkaData) {
+                const city = (location['Gorod'] || location['Город'] || '').toLowerCase().trim();
+                const filial = (location['Filial'] || location['Филиал'] || '').trim();
+                
+                if (city && tenderText.includes(city)) {
+                    return filial;
+                }
+            }
+            
+            return 'Без привязки';
+        }
+
+        // Функция фильтрации заявок
+        function filterTenders() {
+            if (!tenderData.length) return;
+
+            const filtered = {
+                'Наружное освещение': [],
+                'Строительно-монтажные работы': []
+            };
+
+            tenderData.forEach(tender => {
+                // Ищем столбец с наименованием закупки
+                const purchaseName = (tender['Наименование закупки'] || 
+                                    tender['Название закупки'] || 
+                                    tender['Предмет закупки'] || 
+                                    tender['Наименование'] || '').toLowerCase();
+                
+                // Группа 1: Наружное освещение
+                if (purchaseName.includes('наруж')) {
+                    filtered['Наружное освещение'].push({
+                        ...tender,
+                        filial: findFilial(tender)
+                    });
+                }
+                
+                // Группа 2: Строительно-монтажные работы
+                if ((purchaseName.includes('кл-') || purchaseName.includes('вл-') || purchaseName.includes('тп')) &&
+                    !purchaseName.includes('отпу') && !purchaseName.includes('бктп')) {
+                    filtered['Строительно-монтажные работы'].push({
+                        ...tender,
+                        filial: findFilial(tender)
+                    });
+                }
+            });
+
+            // Группируем по филиалам
+            const groupedByFilial = {};
+            filials.forEach(filial => {
+                groupedByFilial[filial] = {
+                    'Наружное освещение': filtered['Наружное освещение'].filter(t => t.filial === filial),
+                    'Строительно-монтажные работы': filtered['Строительно-монтажные работы'].filter(t => t.filial === filial)
+                };
+            });
+
+            filteredData = groupedByFilial;
+            displayResults();
+        }
+
+        // Функция экспорта в Excel
+        function exportToExcel(filial) {
+            const data = filteredData[filial];
+            if (!data) return;
+
+            const exportData = [];
+            
+            Object.entries(data).forEach(([group, tenders]) => {
+                if (tenders.length > 0) {
+                    exportData.push({ 'Группа': group });
+                    tenders.forEach(tender => {
+                        const { filial, sourceFile, ...tenderData } = tender;
+                        exportData.push(tenderData);
+                    });
+                    exportData.push({}); // Пустая строка между группами
+                }
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, filial.substring(0, 31));
+            XLSX.writeFile(wb, `Заявки_${filial}.xlsx`);
+        }
+
+        // Функция отображения результатов
+        function displayResults() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            filials.forEach(filial => {
+                const filialData = filteredData[filial];
+                if (!filialData) return;
+
+                const totalCount = Object.values(filialData).reduce((sum, group) => sum + group.length, 0);
+                if (totalCount === 0) return;
+
+                const filialCard = document.createElement('div');
+                filialCard.className = 'filial-card';
+                
+                let html = `
+                    <div class="filial-header">
+                        <h3 class="filial-title">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            ${filial}
+                            <span class="filial-count">(всего заявок: ${totalCount})</span>
+                        </h3>
+                        <button class="export-btn" onclick="exportToExcel('${filial}')">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                            </svg>
+                            Экспорт
+                        </button>
+                    </div>
+                    <div>
+                `;
+
+                Object.entries(filialData).forEach(([group, tenders]) => {
+                    if (tenders.length === 0) return;
+
+                    html += `
+                        <div class="group-section">
+                            <h4 class="group-title">${group} (${tenders.length})</h4>
+                            <div class="table-wrapper">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>№ закупки</th>
+                                            <th>Наименование</th>
+                                            <th>Заказчик</th>
+                                            <th>Источник</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+
+                    tenders.forEach(tender => {
+                        const purchaseNumber = tender['Номер закупки'] || tender['№ закупки'] || tender['Номер'] || '-';
+                        const purchaseName = tender['Наименование закупки'] || tender['Название закупки'] || 
+                                           tender['Предмет закупки'] || tender['Наименование'] || '-';
+                        const customerName = tender['Наименование заказчика'] || tender['Заказчик'] || 
+                                           tender['Название заказчика'] || '-';
+                        
+                        html += `
+                            <tr>
+                                <td>${purchaseNumber}</td>
+                                <td>${purchaseName}</td>
+                                <td>${customerName}</td>
+                                <td class="source-file">${tender.sourceFile}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                filialCard.innerHTML = html;
+                resultsDiv.appendChild(filialCard);
+            });
+        }
+    </script>
+</body>
+</html>
