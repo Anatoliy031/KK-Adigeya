@@ -386,6 +386,34 @@
             font-weight: bold;
         }
         
+        .debug-panel {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px;
+            display: none;
+        }
+        
+        .debug-panel.active {
+            display: block;
+        }
+        
+        .debug-panel h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+        
+        .debug-content {
+            font-family: monospace;
+            font-size: 12px;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.8em;
@@ -420,10 +448,16 @@
                         <span>Выбрать CSV файл</span>
                     </label>
                 </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-info" onclick="testWithSampleData()" style="background: rgba(255,255,255,0.2); border: 2px solid white;">
+                        🧪 Тест с примером данных
+                    </button>
+                </div>
                 <div id="fileInfo" class="file-info">
                     <p><strong>Файл загружен:</strong> <span id="fileName"></span></p>
                     <p><strong>Размер:</strong> <span id="fileSize"></span></p>
                     <p><strong>Строк обработано:</strong> <span id="rowCount"></span></p>
+                    <p><strong>Уникальных НП найдено:</strong> <span id="uniqueCount">0</span></p>
                 </div>
             </div>
             
@@ -433,7 +467,7 @@
                     <div class="label">Всего записей</div>
                 </div>
                 <div class="stat-card">
-                    <div class="number" id="unique-count">0</div>
+                    <div class="number" id="unique-settlements">0</div>
                     <div class="label">Уникальных НП</div>
                 </div>
                 <div class="stat-card">
@@ -451,15 +485,20 @@
             </div>
         </div>
         
+        <div class="debug-panel" id="debugPanel">
+            <h4>🔍 Отладочная информация</h4>
+            <div class="debug-content" id="debugContent"></div>
+        </div>
+        
         <div class="process-info" id="processInfo">
             <h3>📊 Обработка данных</h3>
             <ul class="process-steps">
-                <li>Чтение CSV файла</li>
-                <li>Извлечение населенных пунктов</li>
-                <li>Определение региона и района по РЭС</li>
-                <li>Классификация типов поселений</li>
-                <li>Удаление дубликатов</li>
-                <li>Формирование итоговой таблицы</li>
+                <li id="step1">Чтение CSV файла</li>
+                <li id="step2">Извлечение населенных пунктов</li>
+                <li id="step3">Определение региона и района по РЭС</li>
+                <li id="step4">Классификация типов поселений</li>
+                <li id="step5">Удаление дубликатов</li>
+                <li id="step6">Формирование итоговой таблицы</li>
             </ul>
         </div>
         
@@ -524,7 +563,8 @@
                 <div class="no-data-icon">📁</div>
                 <h2>Нет данных для отображения</h2>
                 <p style="margin-top: 10px; color: #9ca3af;">
-                    Загрузите CSV файл с данными о населенных пунктах
+                    Загрузите CSV файл с данными о населенных пунктах<br>
+                    или нажмите "Тест с примером данных"
                 </p>
             </div>
             
@@ -553,12 +593,11 @@
         
         // Маппинг РЭС к регионам и районам
         const resMapping = {
+            // Краснодарский край
             'ГКРЭС': { region: 'Краснодарский край', district: 'Горячеключевской район' },
             'ДРЭС': { region: 'Краснодарский край', district: 'Динской район' },
-            'КРЭС': { region: 'Краснодарский край', district: 'Краснодарский район' },
+            'КРЭС': { region: 'Краснодарский край', district: 'г. Краснодар и пригород' },
             'СРЭС': { region: 'Краснодарский край', district: 'Северский район' },
-            'ТРЭС': { region: 'Республика Адыгея', district: 'Теучежский район' },
-            'ТахРЭС': { region: 'Республика Адыгея', district: 'Тахтамукайский район' },
             'АбРЭС': { region: 'Краснодарский край', district: 'Абинский район' },
             'АпРЭС': { region: 'Краснодарский край', district: 'Апшеронский район' },
             'БелРЭС': { region: 'Краснодарский край', district: 'Белоглинский район' },
@@ -591,11 +630,10 @@
             'УстРЭС': { region: 'Краснодарский край', district: 'Усть-Лабинский район' },
             'ЩербРЭС': { region: 'Краснодарский край', district: 'Щербиновский район' },
             'ЕйРЭС': { region: 'Краснодарский край', district: 'Ейский район' },
-            'АнРЭС': { region: 'Краснодарский край', district: 'г. Анапа' },
-            'АрмРЭС': { region: 'Краснодарский край', district: 'г. Армавир' },
-            'ГелРЭС': { region: 'Краснодарский край', district: 'г. Геленджик' },
-            'НовРЭС': { region: 'Краснодарский край', district: 'г. Новороссийск' },
-            'СочРЭС': { region: 'Краснодарский край', district: 'г. Сочи' },
+            
+            // Республика Адыгея
+            'ТРЭС': { region: 'Республика Адыгея', district: 'Теучежский район' },
+            'ТахРЭС': { region: 'Республика Адыгея', district: 'Тахтамукайский район' },
             'МайРЭС': { region: 'Республика Адыгея', district: 'Майкопский район' },
             'ГиагРЭС': { region: 'Республика Адыгея', district: 'Гиагинский район' },
             'КошРЭС': { region: 'Республика Адыгея', district: 'Кошехабльский район' },
@@ -608,6 +646,8 @@
             const file = e.target.files[0];
             if (!file) return;
             
+            console.log('Загружен файл:', file.name, 'Размер:', file.size, 'bytes');
+            
             document.getElementById('fileName').textContent = file.name;
             document.getElementById('fileSize').textContent = formatFileSize(file.size);
             document.getElementById('fileInfo').classList.add('active');
@@ -617,36 +657,145 @@
             
             const reader = new FileReader();
             reader.onload = function(event) {
-                processCSV(event.target.result);
+                console.log('Файл прочитан, начинаем обработку...');
+                
+                // Проверяем первые символы файла для определения проблем
+                const content = event.target.result;
+                console.log('Первые 200 символов файла:', content.substring(0, 200));
+                
+                // Определяем разделитель
+                const firstLine = content.split('\n')[0];
+                console.log('Первая строка файла:', firstLine);
+                
+                if (firstLine.includes(';')) {
+                    console.log('Обнаружен разделитель: точка с запятой (;)');
+                } else if (firstLine.includes(',')) {
+                    console.log('Обнаружен разделитель: запятая (,)');
+                } else if (firstLine.includes('\t')) {
+                    console.log('Обнаружен разделитель: табуляция');
+                }
+                
+                processCSV(content);
             };
+            
+            reader.onerror = function(error) {
+                console.error('Ошибка чтения файла:', error);
+                alert('Ошибка при чтении файла');
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('noData').style.display = 'block';
+            };
+            
+            // Читаем файл с учетом различных кодировок
             reader.readAsText(file, 'UTF-8');
         });
         
         // Обработка CSV
         function processCSV(csvContent) {
             try {
-                // Парсим CSV
+                console.log('Начало обработки CSV...');
+                console.log('Размер файла:', csvContent.length, 'символов');
+                
+                // Показываем отладочную панель
+                document.getElementById('debugPanel').classList.add('active');
+                const debugContent = document.getElementById('debugContent');
+                
+                // Парсим CSV с разными вариантами
                 const parsed = Papa.parse(csvContent, {
                     header: true,
-                    dynamicTyping: true,
+                    dynamicTyping: false, // Изменено на false для лучшей обработки строк
                     skipEmptyLines: true,
-                    delimitersToGuess: [',', '\t', '|', ';']
+                    delimitersToGuess: [',', ';', '\t', '|'],
+                    encoding: 'UTF-8'
                 });
                 
-                console.log('Обработка', parsed.data.length, 'строк');
+                console.log('Парсинг завершен. Строк:', parsed.data.length);
+                console.log('Найденные колонки:', parsed.meta.fields);
+                
+                // Показываем отладочную информацию
+                debugContent.innerHTML = `
+                    <strong>Найденные колонки:</strong><br>
+                    ${parsed.meta.fields.map(f => `• ${f}`).join('<br>')}
+                    <br><br>
+                    <strong>Всего строк:</strong> ${parsed.data.length}
+                    <br><br>
+                    <strong>Пример данных (первая строка):</strong><br>
+                    ${JSON.stringify(parsed.data[0], null, 2)}
+                `;
+                
                 document.getElementById('rowCount').textContent = parsed.data.length;
+                
+                // Ищем правильное название колонки с населенным пунктом
+                let settlementColumn = null;
+                let resColumn = null;
+                
+                // Возможные варианты названий колонок
+                const possibleSettlementColumns = [
+                    'Населенный пунк', 
+                    'Населенный пункт', 
+                    'Населённый пункт',
+                    'НаселенныйПункт',
+                    'Населенныйпункт'
+                ];
+                
+                const possibleResColumns = ['РЭС', 'RES', 'Рэс'];
+                
+                // Ищем колонку с населенным пунктом
+                for (const col of possibleSettlementColumns) {
+                    if (parsed.meta.fields.includes(col)) {
+                        settlementColumn = col;
+                        break;
+                    }
+                }
+                
+                // Если не нашли точное совпадение, ищем похожее
+                if (!settlementColumn) {
+                    for (const field of parsed.meta.fields) {
+                        if (field && (field.toLowerCase().includes('населен') || 
+                            field.toLowerCase().includes('пункт') ||
+                            field.toLowerCase().includes('пунк'))) {
+                            settlementColumn = field;
+                            break;
+                        }
+                    }
+                }
+                
+                // Ищем колонку с РЭС
+                for (const col of possibleResColumns) {
+                    if (parsed.meta.fields.includes(col)) {
+                        resColumn = col;
+                        break;
+                    }
+                }
+                
+                if (!resColumn) {
+                    for (const field of parsed.meta.fields) {
+                        if (field && (field.toLowerCase().includes('рэс') || 
+                            field.toLowerCase() === 'res')) {
+                            resColumn = field;
+                            break;
+                        }
+                    }
+                }
+                
+                console.log('Используемая колонка для населенного пункта:', settlementColumn);
+                console.log('Используемая колонка для РЭС:', resColumn);
+                
+                if (!settlementColumn) {
+                    throw new Error('Не найдена колонка с населенными пунктами. Доступные колонки: ' + parsed.meta.fields.join(', '));
+                }
                 
                 // Извлекаем все населенные пункты
                 const settlements = new Map();
                 let processedCount = 0;
+                let skippedCount = 0;
                 
-                parsed.data.forEach(row => {
-                    const settlementRaw = row['Населенный пунк'] || row['Населенный пункт'];
-                    const res = row['РЭС'];
+                parsed.data.forEach((row, index) => {
+                    const settlementRaw = row[settlementColumn];
+                    const res = resColumn ? row[resColumn] : null;
                     
-                    if (settlementRaw && typeof settlementRaw === 'string') {
+                    if (settlementRaw && settlementRaw.toString().trim()) {
                         // Разбиваем составные записи
-                        const parts = settlementRaw.split(/[,;]/);
+                        const parts = settlementRaw.toString().split(/[,;]/);
                         
                         parts.forEach(part => {
                             const cleaned = cleanSettlementName(part);
@@ -667,11 +816,29 @@
                                 }
                             }
                         });
+                    } else {
+                        skippedCount++;
+                    }
+                    
+                    // Выводим прогресс каждые 1000 строк
+                    if ((index + 1) % 1000 === 0) {
+                        console.log(`Обработано ${index + 1} строк, найдено ${processedCount} уникальных НП`);
                     }
                 });
                 
+                console.log('Обработка завершена:');
+                console.log('- Обработано строк:', parsed.data.length);
+                console.log('- Пропущено пустых строк:', skippedCount);
+                console.log('- Найдено уникальных НП:', processedCount);
+                
+                document.getElementById('uniqueCount').textContent = processedCount;
+                
                 // Преобразуем в массив
                 allData = Array.from(settlements.values());
+                
+                if (allData.length === 0) {
+                    throw new Error('Не удалось извлечь населенные пункты. Проверьте структуру файла.');
+                }
                 
                 // Сортируем по регионам и районам
                 allData.sort((a, b) => {
@@ -695,24 +862,34 @@
                 document.getElementById('controls').style.display = 'block';
                 document.getElementById('tableContainer').style.display = 'block';
                 document.getElementById('loading').classList.remove('active');
+                document.getElementById('processInfo').classList.remove('active');
                 
-                console.log('Обработано уникальных населенных пунктов:', allData.length);
+                console.log('Готово! Обработано уникальных населенных пунктов:', allData.length);
+                
+                // Показываем итоговую статистику
+                setTimeout(() => {
+                    alert(`✅ Успешно обработано!\n\n📊 Статистика:\n• Всего строк в файле: ${parsed.data.length}\n• Найдено уникальных населенных пунктов: ${allData.length}\n\n🗺️ По регионам:\n• Краснодарский край: ${allData.filter(d => d.region === 'Краснодарский край').length}\n• Республика Адыгея: ${allData.filter(d => d.region === 'Республика Адыгея').length}\n• Не определено: ${allData.filter(d => d.region === 'не определен').length}`);
+                }, 500);
                 
             } catch (error) {
                 console.error('Ошибка при обработке CSV:', error);
-                alert('Ошибка при обработке файла. Проверьте формат CSV файла.');
+                alert('❌ Ошибка при обработке файла:\n\n' + error.message + '\n\nПроверьте консоль браузера (F12) для подробностей');
                 document.getElementById('loading').classList.remove('active');
                 document.getElementById('noData').style.display = 'block';
+                document.getElementById('processInfo').classList.remove('active');
             }
         }
         
         // Очистка названия населенного пункта
         function cleanSettlementName(name) {
             if (!name) return '';
-            return name.trim()
+            // Преобразуем в строку, если это не строка
+            const str = String(name);
+            return str.trim()
                 .replace(/^\s+|\s+$/g, '')
                 .replace(/\s+/g, ' ')
-                .replace(/^[.,;]+|[.,;]+$/g, '');
+                .replace(/^[.,;]+|[.,;]+$/g, '')
+                .replace(/["']/g, ''); // Удаляем кавычки
         }
         
         // Определение типа населенного пункта
@@ -759,7 +936,7 @@
             };
             
             document.getElementById('total-count').textContent = stats.total;
-            document.getElementById('unique-count').textContent = stats.total;
+            document.getElementById('unique-settlements').textContent = stats.total;
             document.getElementById('kk-count').textContent = stats.kk;
             document.getElementById('ra-count').textContent = stats.ra;
             document.getElementById('res-count').textContent = stats.districts;
@@ -923,7 +1100,7 @@
             ).join('\n');
             
             navigator.clipboard.writeText(text).then(() => {
-                alert('Данные скопированы в буфер обмена!');
+                alert('✅ Данные скопированы в буфер обмена!');
             });
         }
         
@@ -937,23 +1114,86 @@
         // Поиск в реальном времени
         document.getElementById('searchInput').addEventListener('input', filterData);
         
+        // Функция для тестирования с примером данных
+        function testWithSampleData() {
+            console.log('Запуск теста с примерами данных...');
+            
+            const sampleCSV = `РЭС;Населенный пункт
+ДРЭС;ст. Динская
+ДРЭС;ст. Васюринская, п. Агроном
+ДРЭС;ст. Новотитаровская
+ДРЭС;ст. Пластуновская
+ДРЭС;с. Красносельское
+КРЭС;г. Краснодар
+КРЭС;ст. Елизаветинская
+КРЭС;п. Лазурный
+СРЭС;пгт. Ильский
+СРЭС;ст. Северская
+СРЭС;ст. Смоленская
+ГКРЭС;ст. Саратовская
+ГКРЭС;ст. Бакинская
+ГКРЭС;ст. Суздальская
+ТРЭС;г. Адыгейск
+ТРЭС;а. Понежукай
+ТРЭС;пгт. Тлюстенхабль
+ТахРЭС;п. Яблоновский
+ТахРЭС;а. Тахтамукай
+ТахРЭС;п. Энем`;
+            
+            document.getElementById('fileName').textContent = 'Тестовые данные';
+            document.getElementById('fileSize').textContent = formatFileSize(sampleCSV.length);
+            document.getElementById('fileInfo').classList.add('active');
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('noData').style.display = 'none';
+            document.getElementById('processInfo').classList.add('active');
+            
+            setTimeout(() => {
+                processCSV(sampleCSV);
+            }, 500);
+        }
+        
+        // Делаем функцию доступной глобально
+        window.testWithSampleData = testWithSampleData;
+        
         // Автоматическая загрузка файла из контекста (если доступен)
         window.addEventListener('load', async function() {
-            try {
-                // Пытаемся прочитать файл, если он был загружен в контекст
-                const fileContent = await window.fs.readFile('___________________________.csv', { encoding: 'utf8' });
-                if (fileContent) {
-                    console.log('Найден предзагруженный файл');
-                    document.getElementById('fileName').textContent = 'Предзагруженный файл';
-                    document.getElementById('fileSize').textContent = formatFileSize(fileContent.length);
-                    document.getElementById('fileInfo').classList.add('active');
-                    document.getElementById('loading').classList.add('active');
-                    document.getElementById('noData').style.display = 'none';
-                    document.getElementById('processInfo').classList.add('active');
-                    processCSV(fileContent);
+            console.log('🚀 Система загружена');
+            console.log('📋 Инструкция:');
+            console.log('1. Загрузите CSV файл кнопкой "Выбрать CSV файл"');
+            console.log('2. Или нажмите "Тест с примером данных" для проверки');
+            console.log('3. Файл должен содержать колонки: "Населенный пункт" и "РЭС"');
+            console.log('4. При проблемах смотрите отладочную информацию выше таблицы');
+            
+            // Проверяем, поддерживается ли window.fs
+            if (typeof window.fs !== 'undefined' && window.fs.readFile) {
+                try {
+                    console.log('Проверка наличия предзагруженного файла...');
+                    
+                    // Пытаемся прочитать файл
+                    const fileContent = await window.fs.readFile('___________________________.csv', { encoding: 'utf8' });
+                    
+                    if (fileContent) {
+                        console.log('✅ Найден предзагруженный файл');
+                        console.log('Размер файла:', fileContent.length, 'символов');
+                        document.getElementById('fileName').textContent = 'Предзагруженный файл';
+                        document.getElementById('fileSize').textContent = formatFileSize(fileContent.length);
+                        document.getElementById('fileInfo').classList.add('active');
+                        document.getElementById('loading').classList.add('active');
+                        document.getElementById('noData').style.display = 'none';
+                        document.getElementById('processInfo').classList.add('active');
+                        
+                        // Небольшая задержка для визуализации
+                        setTimeout(() => {
+                            processCSV(fileContent);
+                        }, 100);
+                    }
+                } catch (e) {
+                    console.log('❌ Предзагруженный файл не найден');
+                    console.log('Используйте кнопку загрузки или тестовые данные');
                 }
-            } catch (e) {
-                console.log('Предзагруженный файл не найден, ожидание загрузки пользователем');
+            } else {
+                console.log('ℹ️ window.fs не доступен');
+                console.log('Используйте кнопку загрузки файла или тестовые данные');
             }
         });
     </script>
