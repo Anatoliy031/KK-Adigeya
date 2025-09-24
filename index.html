@@ -255,8 +255,37 @@
             margin-bottom: 16px;
         }
 
-        .no-privyazka-filial {
-            background: #fef3c7;
+        .stats-section {
+            background: #e0f2fe;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+
+        .stat-value {
+            color: #111827;
+            font-size: 1.25rem;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -518,17 +547,18 @@
             }
         });
 
-        // Функция поиска филиала по тексту заявки
+        // Функция поиска филиала по тексту из столбца D
         function findFilial(tender) {
             if (!privyazkaData.length) return 'Без привязки';
             
-            const tenderText = Object.values(tender).join(' ').toLowerCase();
+            // Ищем только в столбце D "Наименование закупки"
+            const purchaseName = (tender['Наименование закупки'] || '').toLowerCase();
             
             for (const location of privyazkaData) {
-                const city = (location['Gorod'] || location['Город'] || '').toLowerCase().trim();
-                const filial = (location['Filial'] || location['Филиал'] || '').trim();
+                const city = (location['Gorod'] || '').toLowerCase().trim();
+                const filial = (location['Filial'] || '').trim();
                 
-                if (city && tenderText.includes(city)) {
+                if (city && purchaseName.includes(city)) {
                     // Проверяем, что филиал из нашего списка
                     if (filials.includes(filial)) {
                         return filial;
@@ -543,19 +573,33 @@
         function filterTenders() {
             if (!tenderData.length) return;
 
+            console.log('Начинаем фильтрацию заявок. Всего заявок:', tenderData.length);
+            console.log('Пример первой заявки:', tenderData[0]);
+            console.log('Загружено городов из файла привязки:', privyazkaData.length);
+
             const filtered = {
                 'Наружное освещение': [],
                 'Строительно-монтажные работы': []
             };
 
+            let totalProcessed = 0;
+            let foundNaruzh = 0;
+            let foundStroitelnye = 0;
+
             tenderData.forEach(tender => {
                 // Получаем значение из столбца D "Наименование закупки"
-                // В Excel столбец D это 4-й столбец (индексация с 0 будет 3)
-                // Но так как мы работаем с именованными столбцами, ищем по имени
                 const purchaseName = (tender['Наименование закупки'] || '').toLowerCase();
+                
+                if (!purchaseName) {
+                    console.warn('Пустое наименование закупки в заявке:', tender);
+                    return;
+                }
+                
+                totalProcessed++;
                 
                 // Группа 1: Наружное освещение (поиск по части слова "наруж")
                 if (purchaseName.includes('наруж')) {
+                    foundNaruzh++;
                     filtered['Наружное освещение'].push({
                         ...tender,
                         filial: findFilial(tender)
@@ -563,15 +607,26 @@
                 }
                 
                 // Группа 2: Строительно-монтажные работы
-                // Условия: содержит "КЛ-" или "ВЛ-" или "ТП", но НЕ содержит "отпу" или "БКТП"
-                if ((purchaseName.includes('кл-') || purchaseName.includes('вл-') || purchaseName.includes('тп')) &&
-                    !purchaseName.includes('отпу') && !purchaseName.includes('бктп')) {
+                // Условия: содержит "кл-" или "вл-" или "тп", но НЕ содержит "отпу" или "бктп"
+                // Также проверяем варианты в верхнем регистре для аббревиатур
+                const hasKL = purchaseName.includes('кл-') || purchaseName.includes('кл ') || purchaseName.includes('кл.');
+                const hasVL = purchaseName.includes('вл-') || purchaseName.includes('вл ') || purchaseName.includes('вл.');
+                const hasTP = purchaseName.includes('тп ') || purchaseName.includes('тп-') || purchaseName.includes('тп.') || 
+                             purchaseName.includes(' тп') || purchaseName.includes(',тп') || purchaseName.includes(';тп');
+                const hasExclusions = purchaseName.includes('отпу') || purchaseName.includes('бктп');
+                
+                if ((hasKL || hasVL || hasTP) && !hasExclusions) {
+                    foundStroitelnye++;
                     filtered['Строительно-монтажные работы'].push({
                         ...tender,
                         filial: findFilial(tender)
                     });
                 }
             });
+
+            console.log(`Обработано заявок: ${totalProcessed}`);
+            console.log(`Найдено "Наружное освещение": ${foundNaruzh}`);
+            console.log(`Найдено "Строительно-монтажные работы": ${foundStroitelnye}`);
 
             // Группируем по филиалам
             const groupedByFilial = {};
@@ -615,6 +670,57 @@
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '';
 
+            // Подсчет общей статистики
+            let totalNaruzh = 0;
+            let totalStroitelnye = 0;
+            let totalByFilial = {};
+
+            filials.forEach(filial => {
+                const filialData = filteredData[filial];
+                if (!filialData) return;
+                
+                const naruzh = filialData['Наружное освещение'].length;
+                const stroitelnye = filialData['Строительно-монтажные работы'].length;
+                
+                totalNaruzh += naruzh;
+                totalStroitelnye += stroitelnye;
+                
+                if (naruzh + stroitelnye > 0) {
+                    totalByFilial[filial] = naruzh + stroitelnye;
+                }
+            });
+
+            const totalFiltered = totalNaruzh + totalStroitelnye;
+
+            // Добавляем секцию статистики
+            if (totalFiltered > 0) {
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'stats-section';
+                statsDiv.innerHTML = `
+                    <h3 style="font-weight: 600; margin-bottom: 12px;">Статистика обработки</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">Всего обработано заявок</div>
+                            <div class="stat-value">${tenderData.length}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Найдено по критериям</div>
+                            <div class="stat-value">${totalFiltered}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Наружное освещение</div>
+                            <div class="stat-value">${totalNaruzh}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Строительно-монтажные работы</div>
+                            <div class="stat-value">${totalStroitelnye}</div>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.appendChild(statsDiv);
+            }
+
+            // Отображаем филиалы
             filials.forEach((filial, index) => {
                 const filialData = filteredData[filial];
                 if (!filialData) return;
@@ -703,11 +809,15 @@
             });
 
             // Если нет результатов
-            if (resultsDiv.innerHTML === '') {
+            if (totalFiltered === 0 && tenderData.length > 0) {
                 resultsDiv.innerHTML = `
                     <div class="filial-card">
                         <p style="text-align: center; color: #6b7280;">
-                            Не найдено заявок, соответствующих критериям поиска.
+                            Загружено ${tenderData.length} заявок, но не найдено ни одной, соответствующей критериям поиска.<br><br>
+                            <strong>Критерии поиска:</strong><br>
+                            1. Наружное освещение - содержит слово "наруж"<br>
+                            2. Строительно-монтажные работы - содержит "КЛ-", "ВЛ-" или "ТП" (но не содержит "отпу" или "БКТП")<br><br>
+                            Проверьте консоль браузера (F12) для диагностической информации.
                         </p>
                     </div>
                 `;
